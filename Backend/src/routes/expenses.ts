@@ -5,7 +5,7 @@ import { authenticateJWT, requireRole } from '../middleware/auth';
 const router = Router();
 
 router.use(authenticateJWT);
-router.use(requireRole(['Fleet Manager', 'Financial Analyst']));
+router.use(requireRole(['Financial Analyst']));
 
 // Get all expenses
 router.get('/', async (req, res) => {
