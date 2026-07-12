@@ -138,11 +138,20 @@ function Header({ setOpen, user }) {
 }
 
 function Login({ onLoginSuccess }) {
-  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState("Fleet Manager");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (role === "Fleet Manager") setEmail("manager@transitops.com");
+    else if (role === "Dispatcher") setEmail("dispatcher@transitops.com");
+    else if (role === "Safety Officer") setEmail("safety@transitops.com");
+    else if (role === "Financial Analyst") setEmail("finance@transitops.com");
+    setPassword("password123");
+  }, [role]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -152,6 +161,11 @@ function Login({ onLoginSuccess }) {
 
     try {
       const res = await client.post('/auth/login', { email, password });
+      
+      if (res.user.role !== role) {
+        throw new Error(`Invalid credentials for the ${role} role.`);
+      }
+
       localStorage.setItem('transitops_token', res.token);
       localStorage.setItem('transitops_user', JSON.stringify(res.user));
       onLoginSuccess(res.user);
@@ -191,8 +205,24 @@ function Login({ onLoginSuccess }) {
           <div className="login-heading">
             <p>WELCOME BACK</p>
             <h2>Sign in to your workspace</h2>
-            <span>Enter your credentials to continue.</span>
+            <span>Authenticate your role to continue.</span>
           </div>
+          <label className="field-label">
+            Select Role
+            <div className="input-wrap">
+              <UserRound size={18} />
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                style={{width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', color: '#263750', fontSize: '12px', fontWeight: 500, paddingLeft: '8px', cursor: 'pointer'}}
+              >
+                <option>Fleet Manager</option>
+                <option>Dispatcher</option>
+                <option>Safety Officer</option>
+                <option>Financial Analyst</option>
+              </select>
+            </div>
+          </label>
           <label className="field-label">
             Work email
             <div className="input-wrap">
@@ -206,7 +236,6 @@ function Login({ onLoginSuccess }) {
               />
             </div>
           </label>
-          <div className="login-role-note"><ShieldCheck size={15}/><span>Your role is securely assigned after login and controls what you can access.</span></div>
           <label className="field-label">
             Password
             <div className="input-wrap">
@@ -1273,12 +1302,12 @@ function SettingsPage({ showToast }) {
   const [settings, setSettings] = useState(() => JSON.parse(localStorage.getItem('transitops_settings') || '{"depot":"Gandhinagar Depot, GJ","currency":"INR (₹)","distance":"Kilometers"}'));
   const save = () => { localStorage.setItem('transitops_settings', JSON.stringify(settings)); showToast('Operations settings saved.', 'green'); };
   const access = [
-    ['Fleet Manager', '✓', '✓', '✓', '✓', '✓', '✓'],
-    ['Dispatcher', 'View', '—', '✓', '✓', '—', '—'],
-    ['Safety Officer', '—', '✓', 'View', '—', '—', '—'],
-    ['Financial Analyst', 'View', '—', '—', '—', '✓', '✓']
+    ['Fleet Manager', '✓', '✓', '—', '—', '✓'],
+    ['Dispatcher', 'view', '—', '✓', '—', '—'],
+    ['Safety Officer', '—', '✓', 'view', '—', '—'],
+    ['Financial Analyst', 'view', '—', '—', '✓', '✓']
   ];
-  return <div className="settings-page"><div className="settings-title"><div><p className="eyebrow">WORKSPACE CONFIGURATION</p><h1>Settings</h1><p className="subtitle">Manage your depot preferences and role-based access.</p></div></div><div className="settings-grid"><Card className="settings-card"><div className="card-heading"><div><p>GENERAL</p><h2>Operations preferences</h2></div></div><label>Depot name<input value={settings.depot} onChange={event => setSettings({...settings, depot:event.target.value})}/></label><label>Currency<select value={settings.currency} onChange={event => setSettings({...settings, currency:event.target.value})}><option>INR (₹)</option><option>USD ($)</option><option>EUR (€)</option></select></label><label>Distance unit<select value={settings.distance} onChange={event => setSettings({...settings, distance:event.target.value})}><option>Kilometers</option><option>Miles</option></select></label><button className="primary settings-save" onClick={save}>Save changes</button></Card><Card className="rbac-card"><div className="card-heading"><div><p>ACCESS CONTROL</p><h2>Role-based access (RBAC)</h2></div><ShieldCheck size={19}/></div><div className="rbac-table-wrap"><table className="rbac-table"><thead><tr><th>Role</th><th>Fleet</th><th>Drivers</th><th>Trips</th><th>Maintenance</th><th>Fuel / Exp.</th><th>Analytics</th></tr></thead><tbody>{access.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={`${row[0]}-${index}`} className={cell === '✓' ? 'rbac-yes' : cell === '—' ? 'rbac-no' : ''}>{cell}</td>)}</tr>)}</tbody></table></div><p className="rbac-note"><LockKeyhole size={14}/> Roles are assigned and enforced by the operations server. Contact a Fleet Manager to change access.</p></Card></div></div>
+  return <div className="settings-page"><div className="settings-title"><div><p className="eyebrow">WORKSPACE CONFIGURATION</p><h1>Settings</h1><p className="subtitle">Manage your depot preferences and role-based access.</p></div></div><div className="settings-grid"><Card className="settings-card"><div className="card-heading"><div><p>GENERAL</p><h2>Operations preferences</h2></div></div><label>Depot name<input value={settings.depot} onChange={event => setSettings({...settings, depot:event.target.value})}/></label><label>Currency<select value={settings.currency} onChange={event => setSettings({...settings, currency:event.target.value})}><option>INR (₹)</option><option>USD ($)</option><option>EUR (€)</option></select></label><label>Distance unit<select value={settings.distance} onChange={event => setSettings({...settings, distance:event.target.value})}><option>Kilometers</option><option>Miles</option></select></label><button className="primary settings-save" onClick={save}>Save changes</button></Card><Card className="rbac-card"><div className="card-heading"><div><p>ACCESS CONTROL</p><h2>Role-based access (RBAC)</h2></div><ShieldCheck size={19}/></div><div className="rbac-table-wrap"><table className="rbac-table"><thead><tr><th>Role</th><th>Fleet</th><th>Drivers</th><th>Trips</th><th>Fuel / Exp.</th><th>Analytics</th></tr></thead><tbody>{access.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={`${row[0]}-${index}`} className={cell === '✓' ? 'rbac-yes' : cell === '—' ? 'rbac-no' : ''}>{cell}</td>)}</tr>)}</tbody></table></div><p className="rbac-note"><LockKeyhole size={14}/> Roles are assigned and enforced by the operations server. Contact a Fleet Manager to change access.</p></Card></div></div>
 }
 
 function App() {
@@ -1475,97 +1504,121 @@ function App() {
               <div className="title-row">
                 <div>
                   <p className="eyebrow">{today}</p>
-                  <h1>Good morning, Dispatcher <span>👋</span></h1>
+                  <h1>Good morning, {user?.role?.split(' ')[0] || 'User'} <span>👋</span></h1>
                   <p className="subtitle">Real-time status overview of the TransitOps fleet.</p>
                 </div>
-                <div className="title-actions">
-                  <button className="primary" onClick={() => setTripModal(true)}><Zap size={17} /> Create trip</button>
+                {['Fleet Manager', 'Dispatcher'].includes(user?.role) && (
+                  <div className="title-actions">
+                    <button className="primary" onClick={() => setTripModal(true)}><Zap size={17} /> Create trip</button>
+                  </div>
+                )}
+              </div>
+
+              {['Fleet Manager', 'Dispatcher'].includes(user?.role) && (
+                <div className="filters dashboard-filters">
+                  <select value={dashboardFilters.type} onChange={event => setDashboardFilters({...dashboardFilters, type: event.target.value})}><option>All vehicle types</option>{[...new Set(dashboardRecords.vehicles.map(vehicle => vehicle.type))].map(type => <option key={type}>{type}</option>)}</select>
+                  <select value={dashboardFilters.status} onChange={event => setDashboardFilters({...dashboardFilters, status: event.target.value})}><option>All statuses</option>{[...new Set(dashboardRecords.vehicles.map(vehicle => vehicle.status))].map(status => <option key={status}>{status}</option>)}</select>
+                  <select value={dashboardFilters.region} onChange={event => setDashboardFilters({...dashboardFilters, region: event.target.value})}><option>All regions</option>{[...new Set(dashboardRecords.vehicles.map(vehicle => vehicle.region || 'Unassigned'))].map(region => <option key={region}>{region}</option>)}</select>
+                  <span>{filteredDashboard.vehicles.length} matching vehicles</span>
                 </div>
-              </div>
+              )}
 
-              <div className="filters dashboard-filters">
-                <select value={dashboardFilters.type} onChange={event => setDashboardFilters({...dashboardFilters, type: event.target.value})}><option>All vehicle types</option>{[...new Set(dashboardRecords.vehicles.map(vehicle => vehicle.type))].map(type => <option key={type}>{type}</option>)}</select>
-                <select value={dashboardFilters.status} onChange={event => setDashboardFilters({...dashboardFilters, status: event.target.value})}><option>All statuses</option>{[...new Set(dashboardRecords.vehicles.map(vehicle => vehicle.status))].map(status => <option key={status}>{status}</option>)}</select>
-                <select value={dashboardFilters.region} onChange={event => setDashboardFilters({...dashboardFilters, region: event.target.value})}><option>All regions</option>{[...new Set(dashboardRecords.vehicles.map(vehicle => vehicle.region || 'Unassigned'))].map(region => <option key={region}>{region}</option>)}</select>
-                <span>{filteredDashboard.vehicles.length} matching vehicles</span>
-              </div>
+              {user?.role && (
+                <div className="kpi-grid dashboard-kpis">
+                  {['Fleet Manager', 'Dispatcher'].includes(user?.role) && (
+                    <>
+                      <Kpi icon={Truck} color="blue" value={filteredDashboard.vehicles.length} label="Active vehicles" change="4.1%" />
+                      <Kpi icon={ShieldCheck} color="green" value={filteredDashboard.vehicles.filter(vehicle => vehicle.status === 'Available').length} label="Available vehicles" change="5.4%" />
+                    </>
+                  )}
+                  {['Fleet Manager', 'Safety Officer'].includes(user?.role) && (
+                    <Kpi icon={ToolCase} color="amber" value={filteredDashboard.vehicles.filter(vehicle => vehicle.status === 'In Shop').length} label="Vehicles in maintenance" change="2.1%" down />
+                  )}
+                  {['Fleet Manager', 'Dispatcher'].includes(user?.role) && (
+                    <>
+                      <Kpi icon={Activity} color="purple" value={filteredDashboard.activeTrips} label="Active trips" change="12.6%" />
+                      <Kpi icon={Clock3} color="amber" value={filteredDashboard.pendingTrips} label="Pending trips" change="3.0%" />
+                    </>
+                  )}
+                  {['Fleet Manager', 'Safety Officer'].includes(user?.role) && (
+                    <Kpi icon={Users} color="green" value={filteredDashboard.driversOnDuty} label="Drivers on duty" change="6.2%" />
+                  )}
+                  {['Fleet Manager', 'Financial Analyst'].includes(user?.role) && (
+                    <Kpi icon={Gauge} color="blue" value={`${filteredDashboard.utilization}%`} label="Fleet utilization" change="4.8%" />
+                  )}
+                </div>
+              )}
 
-              <div className="kpi-grid dashboard-kpis">
-                <Kpi icon={Truck} color="blue" value={filteredDashboard.vehicles.length} label="Active vehicles" change="4.1%" />
-                <Kpi icon={ShieldCheck} color="green" value={filteredDashboard.vehicles.filter(vehicle => vehicle.status === 'Available').length} label="Available vehicles" change="5.4%" />
-                <Kpi icon={ToolCase} color="amber" value={filteredDashboard.vehicles.filter(vehicle => vehicle.status === 'In Shop').length} label="Vehicles in maintenance" change="2.1%" down />
-                <Kpi icon={Activity} color="purple" value={filteredDashboard.activeTrips} label="Active trips" change="12.6%" />
-                <Kpi icon={Clock3} color="amber" value={filteredDashboard.pendingTrips} label="Pending trips" change="3.0%" />
-                <Kpi icon={Users} color="green" value={filteredDashboard.driversOnDuty} label="Drivers on duty" change="6.2%" />
-                <Kpi icon={Gauge} color="blue" value={`${filteredDashboard.utilization}%`} label="Fleet utilization" change="4.8%" />
-              </div>
-
-              <div className="metrics-row">
-                <Card className="util">
-                  <div className="card-heading">
-                    <div>
-                      <p>FLEET PERFORMANCE</p>
-                      <h2>Fleet utilization</h2>
+              {['Fleet Manager', 'Financial Analyst'].includes(user?.role) && (
+                <div className="metrics-row">
+                  <Card className="util">
+                    <div className="card-heading">
+                      <div>
+                        <p>FLEET PERFORMANCE</p>
+                        <h2>Fleet utilization</h2>
+                      </div>
                     </div>
-                  </div>
-                  <div className="chart-stats"><strong>{filteredDashboard.utilization}%</strong><span className="positive"><ArrowUpRight /> 4.8%</span><small>vs. last week</small></div>
-                  <div className="area-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData.utilization} margin={{top:10,right:4,left:-24,bottom:0}}><defs><linearGradient id="utilizationFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#377dff" stopOpacity=".28"/><stop offset="100%" stopColor="#377dff" stopOpacity="0"/></linearGradient></defs><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:11}}/><YAxis axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:11}} domain={[0,100]}/><Tooltip/><Area type="monotone" dataKey="value" stroke="#377dff" strokeWidth={3} fill="url(#utilizationFill)"/></AreaChart></ResponsiveContainer></div>
-                </Card>
+                    <div className="chart-stats"><strong>{filteredDashboard.utilization}%</strong><span className="positive"><ArrowUpRight /> 4.8%</span><small>vs. last week</small></div>
+                    <div className="area-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData.utilization} margin={{top:10,right:4,left:-24,bottom:0}}><defs><linearGradient id="utilizationFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#377dff" stopOpacity=".28"/><stop offset="100%" stopColor="#377dff" stopOpacity="0"/></linearGradient></defs><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:11}}/><YAxis axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:11}} domain={[0,100]}/><Tooltip/><Area type="monotone" dataKey="value" stroke="#377dff" strokeWidth={3} fill="url(#utilizationFill)"/></AreaChart></ResponsiveContainer></div>
+                  </Card>
 
-                <Card className="efficiency">
-                  <div className="card-heading">
-                    <div>
-                      <p>FLEET INSIGHT</p>
-                      <h2>Fuel efficiency</h2>
+                  <Card className="efficiency">
+                    <div className="card-heading">
+                      <div>
+                        <p>FLEET INSIGHT</p>
+                        <h2>Fuel efficiency</h2>
+                      </div>
                     </div>
-                  </div>
-                  <div className="bar-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData.efficiency} margin={{top:15,right:0,left:-28,bottom:0}}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:10}}/><YAxis axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:10}}/><Tooltip/><Bar dataKey="value" fill="#8b6df6" radius={[7,7,2,2]} barSize={19}/></BarChart></ResponsiveContainer></div><div className="chart-foot"><span><i className="legend purple-dot"/> km / litre</span><button onClick={() => { setPage('Expenses'); showToast('Open fuel expenses to view the vehicle-by-vehicle report.', 'green'); }}>View report <ArrowUpRight size={14}/></button></div>
-                </Card>
-                <Card className="costs">
-                  <div className="card-heading"><div><p>MONTHLY SPEND</p><h2>Operational cost</h2></div><span className="chart-menu-wrap"><button className="icon-button" onClick={() => setCostMenuOpen(!costMenuOpen)} aria-label="Operational cost options"><MoreHorizontal size={18}/></button>{costMenuOpen && <span className="chart-menu"><button onClick={() => { setPage('Expenses'); setCostMenuOpen(false); }}>View expenses</button><button onClick={exportCostReport}>Download CSV</button></span>}</span></div>
-                  <div className="donut-wrap"><ResponsiveContainer width={132} height={132}><PieChart><Pie data={chartData.costs} dataKey="value" innerRadius={42} outerRadius={58} strokeWidth={5} stroke="transparent">{chartData.costs.map(item => <Cell key={item.name} fill={item.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><b>₹{chartData.costs.reduce((sum, item) => sum + item.value, 0)}</b><span>this month</span></div></div>
-                  <div className="cost-legend">{chartData.costs.map(item => <span key={item.name}><i style={{background:item.color}}/>{item.name}<b>{item.value}</b></span>)}</div>
-                </Card>
-              </div>
+                    <div className="bar-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData.efficiency} margin={{top:15,right:0,left:-28,bottom:0}}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:10}}/><YAxis axisLine={false} tickLine={false} tick={{fill:'#91a0b8',fontSize:10}}/><Tooltip/><Bar dataKey="value" fill="#8b6df6" radius={[7,7,2,2]} barSize={19}/></BarChart></ResponsiveContainer></div><div className="chart-foot"><span><i className="legend purple-dot"/> km / litre</span><button onClick={() => { setPage('Expenses'); showToast('Open fuel expenses to view the vehicle-by-vehicle report.', 'green'); }}>View report <ArrowUpRight size={14}/></button></div>
+                  </Card>
+                  <Card className="costs">
+                    <div className="card-heading"><div><p>MONTHLY SPEND</p><h2>Operational cost</h2></div><span className="chart-menu-wrap"><button className="icon-button" onClick={() => setCostMenuOpen(!costMenuOpen)} aria-label="Operational cost options"><MoreHorizontal size={18}/></button>{costMenuOpen && <span className="chart-menu"><button onClick={() => { setPage('Expenses'); setCostMenuOpen(false); }}>View expenses</button><button onClick={exportCostReport}>Download CSV</button></span>}</span></div>
+                    <div className="donut-wrap"><ResponsiveContainer width={132} height={132}><PieChart><Pie data={chartData.costs} dataKey="value" innerRadius={42} outerRadius={58} strokeWidth={5} stroke="transparent">{chartData.costs.map(item => <Cell key={item.name} fill={item.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><b>₹{chartData.costs.reduce((sum, item) => sum + item.value, 0)}</b><span>this month</span></div></div>
+                    <div className="cost-legend">{chartData.costs.map(item => <span key={item.name}><i style={{background:item.color}}/>{item.name}<b>{item.value}</b></span>)}</div>
+                  </Card>
+                </div>
+              )}
 
-              <div className="bottom-row">
-                <Card className="board" style={{ width: '100%' }}>
-                  <div className="card-heading">
-                    <div>
-                      <p>LIVE MONITORING</p>
-                      <h2>Recent trips run board</h2>
+              {['Fleet Manager', 'Dispatcher', 'Safety Officer'].includes(user?.role) && (
+                <div className="bottom-row">
+                  <Card className="board" style={{ width: '100%' }}>
+                    <div className="card-heading">
+                      <div>
+                        <p>LIVE MONITORING</p>
+                        <h2>Recent trips run board</h2>
+                      </div>
                     </div>
-                  </div>
-                  <div className="vehicle-table-wrap" style={{ marginTop: '16px' }}>
-                    <table className="vehicle-table">
-                      <thead>
-                        <tr>
-                          <th>Trip ID</th>
-                          <th>Route</th>
-                          <th>Status</th>
-                          <th>Cargo Load</th>
-                          <th>Odometer run</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentTrips.map(rt => (
-                          <tr key={rt.id}>
-                            <td><code>{rt.id.slice(0, 8)}</code></td>
-                            <td>{rt.source} → {rt.destination}</td>
-                            <td>
-                              <span className={`vehicle-status ${rt.status.toLowerCase().replaceAll(" ", "-")}`}>
-                                <i />{rt.status}
-                              </span>
-                            </td>
-                            <td>{rt.cargoWeight} kg</td>
-                            <td>{rt.plannedDistance} km</td>
+                    <div className="vehicle-table-wrap" style={{ marginTop: '16px' }}>
+                      <table className="vehicle-table">
+                        <thead>
+                          <tr>
+                            <th>Trip ID</th>
+                            <th>Route</th>
+                            <th>Status</th>
+                            <th>Cargo Load</th>
+                            <th>Odometer run</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </div>
+                        </thead>
+                        <tbody>
+                          {recentTrips.map(rt => (
+                            <tr key={rt.id}>
+                              <td><code>{rt.id.slice(0, 8)}</code></td>
+                              <td>{rt.source} → {rt.destination}</td>
+                              <td>
+                                <span className={`vehicle-status ${rt.status.toLowerCase().replaceAll(" ", "-")}`}>
+                                  <i />{rt.status}
+                                </span>
+                              </td>
+                              <td>{rt.cargoWeight} kg</td>
+                              <td>{rt.plannedDistance} km</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </div>
+              )}
             </>
           )}
 
