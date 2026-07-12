@@ -15,14 +15,10 @@ import { VEHICLE_STATUSES } from '../stateMachines/vehicleStateMachine';
 const router = Router();
 
 router.use(authenticateJWT);
-router.use((req, res, next) => {
-  const viewers = ['Fleet Manager', 'Dispatcher', 'Financial Analyst'];
-  if (req.method === 'GET' && viewers.includes((req as any).user?.role)) return next();
-  return requireRole(['Fleet Manager'])(req as any, res, next);
-});
+router.use(requireRole(['Fleet Manager']));
 
 // Get all vehicles with optional filtering
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
+router.get('/', requireRole(['Fleet Manager', 'Dispatcher', 'Financial Analyst']), asyncHandler(async (req: Request, res: Response) => {
   const { status, type, search } = req.query;
   const where: any = {};
   if (status) where.status = status;
@@ -42,7 +38,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // ⭐ Get available vehicles (for dispatch dropdown)
-router.get('/available', asyncHandler(async (req: Request, res: Response) => {
+router.get('/available', requireRole(['Fleet Manager', 'Dispatcher', 'Financial Analyst']), asyncHandler(async (req: Request, res: Response) => {
   const vehicles = await prisma.vehicle.findMany({
     where: { status: VEHICLE_STATUSES.AVAILABLE },
   });
@@ -50,7 +46,7 @@ router.get('/available', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Get a single vehicle
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.get('/:id', requireRole(['Fleet Manager', 'Dispatcher', 'Financial Analyst']), asyncHandler(async (req: Request, res: Response) => {
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: req.params.id as string },
   });
@@ -61,7 +57,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // ⭐ Create — with unique registration validation
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
+router.post('/', requireRole(['Fleet Manager']), asyncHandler(async (req: Request, res: Response) => {
   const { registrationNumber, modelName, type, maxLoadCapacity, odometer, acquisitionCost, status } = req.body;
 
   // Input validation
@@ -93,7 +89,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // ⭐ Update — with unique registration validation
-router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id', requireRole(['Fleet Manager']), asyncHandler(async (req: Request, res: Response) => {
   const data: any = { ...req.body };
 
   // Don't allow status changes through regular update — use specific endpoints
@@ -112,13 +108,13 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // ⭐ RETIRE a vehicle — terminal state transition
-router.put('/:id/retire', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id/retire', requireRole(['Fleet Manager']), asyncHandler(async (req: Request, res: Response) => {
   const vehicle = await retireVehicle(req.params.id as string);
   res.json({ success: true, message: 'Vehicle retired successfully', data: vehicle });
 }));
 
 // ⭐ Delete — with guard against deleting On Trip vehicles
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.delete('/:id', requireRole(['Fleet Manager']), asyncHandler(async (req: Request, res: Response) => {
   await assertCanDeleteVehicle(req.params.id as string);
   await prisma.vehicle.delete({ where: { id: req.params.id as string } });
   res.status(204).send();

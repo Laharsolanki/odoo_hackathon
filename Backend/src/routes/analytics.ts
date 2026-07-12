@@ -126,4 +126,49 @@ router.get('/fleet-status', async (req, res) => {
   }
 });
 
+// Dashboard KPIs
+router.get('/dashboard-kpis', async (req, res) => {
+  try {
+    const { type, status } = req.query;
+    
+    // Base vehicle filter
+    const vehicleFilter: any = {};
+    if (type) vehicleFilter.type = type;
+    if (status) vehicleFilter.status = status;
+
+    const totalVehicles = await prisma.vehicle.count({ where: vehicleFilter });
+    const activeVehicles = await prisma.vehicle.count({ where: { ...vehicleFilter, status: 'On Trip' } });
+    const availableVehicles = await prisma.vehicle.count({ where: { ...vehicleFilter, status: 'Available' } });
+    const inMaintenanceVehicles = await prisma.vehicle.count({ where: { ...vehicleFilter, status: 'In Shop' } });
+    
+    // For trips, if vehicle filter is applied, we'd ideally join, but Prisma count doesn't easily join on arbitrary fields without nested where.
+    const tripFilter: any = {};
+    if (type || status) {
+      tripFilter.vehicle = {};
+      if (type) tripFilter.vehicle.type = type;
+      if (status) tripFilter.vehicle.status = status;
+    }
+
+    const activeTrips = await prisma.trip.count({ where: { ...tripFilter, status: 'Dispatched' } });
+    const pendingTrips = await prisma.trip.count({ where: { ...tripFilter, status: 'Draft' } });
+    
+    const driversOnDuty = await prisma.driver.count({ where: { status: 'On Trip' } });
+    
+    const fleetUtilization = totalVehicles > 0 ? (activeVehicles / totalVehicles) * 100 : 0;
+
+    res.json({
+      totalVehicles,
+      activeVehicles,
+      availableVehicles,
+      inMaintenanceVehicles,
+      activeTrips,
+      pendingTrips,
+      driversOnDuty,
+      fleetUtilization
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch dashboard KPIs' });
+  }
+});
+
 export default router;

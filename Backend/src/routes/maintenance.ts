@@ -16,10 +16,10 @@ import { openMaintenance, closeMaintenance } from '../services/maintenanceServic
 const router = Router();
 
 router.use(authenticateJWT);
-router.use(requireRole(['Fleet Manager', 'Safety Officer']));
+// Global role requirement removed for fine-grained access
 
 // Get all maintenance logs
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
+router.get('/', requireRole(['Fleet Manager', 'Dispatcher', 'Financial Analyst', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const { status, vehicleId } = req.query;
   const where: any = {};
   if (status) where.status = status;
@@ -34,7 +34,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Get single maintenance record
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.get('/:id', requireRole(['Fleet Manager', 'Dispatcher', 'Financial Analyst', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const log = await prisma.maintenanceLog.findUnique({
     where: { id: req.params.id as string },
     include: { vehicle: true },
@@ -46,7 +46,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // ⭐ OPEN maintenance — sets vehicle to In Shop
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
+router.post('/', requireRole(['Fleet Manager', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const { vehicleId, description, startDate, cost } = req.body;
 
   // Input validation
@@ -65,14 +65,14 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // ⭐ CLOSE maintenance — restores vehicle to Available (unless Retired)
-router.put('/:id/close', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id/close', requireRole(['Fleet Manager', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const { cost } = req.body;
   const log = await closeMaintenance(req.params.id as string, cost);
   res.json({ success: true, message: 'Maintenance closed, vehicle status restored', data: log });
 }));
 
 // Update a maintenance log (generic fields only — status changes go through /close)
-router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id', requireRole(['Fleet Manager', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const data: any = { ...req.body };
 
   // Prevent direct status changes — must use /close endpoint
@@ -96,7 +96,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Delete a maintenance log — only allowed for Open records
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.delete('/:id', requireRole(['Fleet Manager', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const log = await prisma.maintenanceLog.findUnique({ where: { id: req.params.id as string } });
   if (!log) {
     throw { status: 404, code: 'NOT_FOUND', message: 'Maintenance record not found' };

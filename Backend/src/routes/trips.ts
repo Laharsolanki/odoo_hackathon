@@ -24,14 +24,10 @@ import {
 const router = Router();
 
 router.use(authenticateJWT);
-router.use((req, res, next) => {
-  const role = (req as AuthRequest).user?.role;
-  if (req.method === 'GET' && ['Dispatcher', 'Safety Officer'].includes(role || '')) return next();
-  return requireRole(['Dispatcher'])(req as AuthRequest, res, next);
-});
+router.use(requireRole(['Fleet Manager']));
 
 // Get all trips with optional filtering
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
+router.get('/', requireRole(['Dispatcher', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const { status, vehicleId, driverId } = req.query;
   const where: any = {};
   if (status) where.status = status;
@@ -47,7 +43,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Get single trip
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.get('/:id', requireRole(['Dispatcher', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const trip = await prisma.trip.findUnique({
     where: { id: req.params.id as string },
     include: { vehicle: true, driver: true },
@@ -59,20 +55,20 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Get available vehicles for dispatch selection
-router.get('/available/vehicles', asyncHandler(async (req: Request, res: Response) => {
+router.get('/available/vehicles', requireRole(['Dispatcher', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const vehicles = await getAvailableVehicles();
   res.json(vehicles);
 }));
 
 // Get available drivers for dispatch selection
-router.get('/available/drivers', asyncHandler(async (req: Request, res: Response) => {
+router.get('/available/drivers', requireRole(['Dispatcher', 'Safety Officer']), asyncHandler(async (req: Request, res: Response) => {
   const drivers = await getAvailableDrivers();
   res.json(drivers);
 }));
 
 // Create a new trip (status: Draft)
 // ⭐ Enhanced: validates vehicle and driver existence
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
+router.post('/', requireRole(['Dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const { source, destination, vehicleId, driverId, cargoWeight, plannedDistance, revenue } = req.body;
 
   // Input validation
@@ -105,21 +101,21 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 // ⭐ DISPATCH a trip — the most critical endpoint
 // Enforces: trip state, vehicle availability, driver availability,
 //           license expiry, cargo capacity
-router.put('/:id/dispatch', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id/dispatch', requireRole(['Dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const trip = await dispatchTrip(req.params.id as string);
   res.json({ success: true, message: 'Trip dispatched successfully', data: trip });
 }));
 
 // ⭐ COMPLETE a trip
 // Restores vehicle and driver to Available
-router.put('/:id/complete', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id/complete', requireRole(['Dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const trip = await completeTrip(req.params.id as string);
   res.json({ success: true, message: 'Trip completed successfully', data: trip });
 }));
 
 // ⭐ CANCEL a trip
 // Restores resources if trip was dispatched
-router.put('/:id/cancel', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id/cancel', requireRole(['Dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const { reason } = req.body;
   const trip = await cancelTrip(req.params.id as string, reason);
   res.json({ success: true, message: 'Trip cancelled successfully', data: trip });
@@ -127,7 +123,7 @@ router.put('/:id/cancel', asyncHandler(async (req: Request, res: Response) => {
 
 // Legacy status update — REPLACED by specific endpoints above
 // Kept for backward compatibility but validates via state machine
-router.put('/:id/status', asyncHandler(async (req: Request, res: Response) => {
+router.put('/:id/status', requireRole(['Dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const { status } = req.body;
 
   if (status === 'Dispatched') {
@@ -147,7 +143,7 @@ router.put('/:id/status', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Delete a trip — only allowed for Draft trips
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.delete('/:id', requireRole(['Dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const trip = await prisma.trip.findUnique({ where: { id: req.params.id as string } });
   if (!trip) {
     throw { status: 404, code: 'NOT_FOUND', message: 'Trip not found' };

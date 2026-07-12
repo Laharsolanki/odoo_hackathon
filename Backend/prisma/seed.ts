@@ -52,6 +52,16 @@ async function main() {
     },
   });
 
+  const dispatcher = await prisma.user.upsert({
+    where: { email: 'dispatcher@transitops.com' },
+    update: {},
+    create: {
+      email: 'dispatcher@transitops.com',
+      passwordHash,
+      role: 'Dispatcher',
+    },
+  });
+
   // Create Vehicle
   const vehicle = await prisma.vehicle.upsert({
     where: { registrationNumber: 'TRK-9988' },
@@ -125,6 +135,7 @@ async function main() {
   console.log('dispatcher@transitops.com');
   console.log('safety@transitops.com');
   console.log('finance@transitops.com');
+  console.log('dispatcher@transitops.com');
 }
 
 main()
