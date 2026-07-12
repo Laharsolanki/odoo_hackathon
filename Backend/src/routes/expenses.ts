@@ -21,14 +21,17 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { vehicleId, type, metricUnits, cost, date } = req.body;
+    const data: any = {
+      vehicleId,
+      type,
+      metricUnits,
+      cost
+    };
+    if (date) {
+      data.date = new Date(date);
+    }
     const expense = await prisma.expenseLog.create({
-      data: { 
-        vehicleId, 
-        type, 
-        metricUnits, 
-        cost, 
-        date: date ? new Date(date) : undefined 
-      }
+      data
     });
     res.status(201).json(expense);
   } catch (error) {

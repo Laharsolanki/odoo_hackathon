@@ -1,118 +1,1516 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, Box, CalendarDays,
-  ChevronDown, ChevronsUpDown, CircleDollarSign, Clock3, Fuel, Gauge, LayoutDashboard,
-  Menu, MoreHorizontal, Moon, Search, Settings, ShieldCheck, Sun, ToolCase, Truck,
-  Users, X, Zap, LockKeyhole, Mail, Eye, EyeOff, ArrowRight, CheckCircle2, LogOut, UserRound, SlidersHorizontal, Plus, FileText, MapPin, Pencil
+  ChevronDown, MoreHorizontal, Moon, Search, Settings, ShieldCheck, Sun, ToolCase, Truck,
+  Users, X, Zap, LockKeyhole, Mail, Eye, EyeOff, ArrowRight, CheckCircle2, LogOut, UserRound, SlidersHorizontal, Plus, FileText, MapPin, Pencil, Trash2,
+  LayoutDashboard, CircleDollarSign, Menu
 } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import "./styles.css";
+import client from "./api/client";
 
 const nav = [
-  [LayoutDashboard, "Dashboard"], [Truck, "Vehicles"], [Users, "Drivers"],
-  [Box, "Trips"], [ToolCase, "Maintenance"], [Fuel, "Fuel & Expenses"],
-  [BarChart3, "Reports & Analytics"], [Settings, "Settings"]
+  [LayoutDashboard, "Dashboard"],
+  [Truck, "Vehicles"],
+  [Users, "Drivers"],
+  [Box, "Trips"],
+  [ToolCase, "Maintenance"],
+  [CircleDollarSign, "Expenses"],
 ];
-const utilization = [
-  { day: "Mon", value: 63 }, { day: "Tue", value: 71 }, { day: "Wed", value: 67 },
-  { day: "Thu", value: 78 }, { day: "Fri", value: 74 }, { day: "Sat", value: 82 }, { day: "Sun", value: 76 }
-];
-const efficiency = [{name:"TR-104", value:88},{name:"TR-088",value:73},{name:"VN-221",value:65},{name:"TR-332",value:57},{name:"VN-116",value:51}];
-const costs = [{name:"Fuel", value:58, color:"#377dff"},{name:"Maintenance",value:27,color:"#8b6df6"},{name:"Tolls",value:15,color:"#f3b748"}];
-const trips = {
-  Draft: [{ route:"Pune → Mumbai", id:"TRP-2918", vehicle:"TR-104", driver:"Awaiting assignment", load:0, tone:"blue" }],
-  Dispatched: [{ route:"Nashik → Pune", id:"TRP-2916", vehicle:"VN-221", driver:"S. Kulkarni", load:72, tone:"purple" }, { route:"Mumbai → Surat", id:"TRP-2912", vehicle:"TR-088", driver:"R. Patel", load:91, tone:"purple" }],
-  Completed: [{ route:"Thane → Aurangabad", id:"TRP-2909", vehicle:"TR-332", driver:"V. Shah", load:66, tone:"green" }],
-  Cancelled: []
-};
 
-function Status({ children, color = "green" }) { return <span className={`status ${color}`}><i />{children}</span>; }
-function IconTile({icon: Icon, color}) { return <div className={`icon-tile ${color}`}><Icon size={22} strokeWidth={2.3}/></div>; }
-function Card({children, className = ""}) { return <section className={`card ${className}`}>{children}</section>; }
-function Kpi({ icon, color, value, label, change, down }) { return <Card className="kpi"><IconTile icon={icon} color={color}/><div className="kpi-copy"><span>{label}</span><strong>{value}</strong><small className={down ? "negative" : "positive"}>{down ? <ArrowDownRight/> : <ArrowUpRight/>}{change} <em>vs last week</em></small></div><MoreHorizontal className="kpi-more" size={18}/></Card>; }
-
-function Sidebar({open, setOpen, theme, setTheme, onProfile, onLogout, page, setPage}) {
-  return <aside className={`sidebar ${open ? "open" : ""}`}>
-    <div className="brand"><div className="brand-mark"><Truck size={23}/></div><span>Transit<span>Ops</span></span><button className="mobile-close" onClick={() => setOpen(false)}><X/></button></div>
-    <div className="workspace"><div className="company-logo">N</div><div><b>Northstar Fleet</b><small>Operations</small></div><ChevronDown size={16}/></div>
-    <p className="nav-label">WORKSPACE</p>
-    <nav>{nav.map(([Icon, text]) => <button key={text} onClick={() => {setPage(text);setOpen(false)}} className={text === page ? "active" : ""}><Icon size={19}/><span>{text}</span>{text === "Trips" && <b className="nav-badge">5</b>}</button>)}</nav>
-    <div className="sidebar-footer"><button className="theme-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><span className="theme-track">{theme === "dark" ? <Moon size={15}/> : <Sun size={15}/>}</span><span>{theme === "dark" ? "Dark mode" : "Light mode"}</span></button><button className="profile" onClick={onProfile}><div className="avatar">AK</div><div><b>Arjun Khanna</b><small>Fleet Manager</small></div><MoreHorizontal size={18}/></button><button className="sidebar-logout" onClick={onLogout}><LogOut size={17}/> Log out</button></div>
-  </aside>
+function Status({ children, color = "green" }) {
+  return <span className={`status ${color}`}><i />{children}</span>;
 }
 
-function Header({setOpen, onProfile}) { return <header><button className="hamburger" onClick={() => setOpen(true)}><Menu/></button><div className="crumb"><span>Operations</span><i>/</i><b>Dashboard</b></div><div className="header-actions"><label className="search"><Search size={18}/><input placeholder="Search anything..."/><kbd>⌘ K</kbd></label><button className="round-button"><Bell size={19}/><i className="notif-dot"/></button><button className="header-avatar" onClick={onProfile}>AK</button></div></header> }
+function IconTile({ icon: Icon, color }) {
+  return <div className={`icon-tile ${color}`}><Icon size={22} strokeWidth={2.3} /></div>;
+}
 
-function TripCard({trip}) { return <div className="trip-card"><div className="trip-card-top"><span>{trip.id}</span><MoreHorizontal size={17}/></div><b>{trip.route}</b><div className="trip-info"><Truck size={14}/>{trip.vehicle}<span>•</span><Users size={14}/>{trip.driver}</div><div className="load-row"><span>Cargo load</span><b>{trip.load}%</b></div><div className="progress"><i className={trip.tone} style={{width:`${trip.load}%`}}/></div></div> }
+function Card({ children, className = "" }) {
+  return <section className={`card ${className}`}>{children}</section>;
+}
 
-function Login({ onLogin }) {
+function Kpi({ icon, color, value, label, change, down }) {
+  return (
+    <Card className="kpi">
+      <IconTile icon={icon} color={color} />
+      <div className="kpi-copy">
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small className={down ? "negative" : "positive"}>
+          {down ? <ArrowDownRight /> : <ArrowUpRight />}
+          {change} <em>vs last week</em>
+        </small>
+      </div>
+      <MoreHorizontal className="kpi-more" size={18} />
+    </Card>
+  );
+}
+
+function Sidebar({ open, setOpen, theme, setTheme, user, onLogout, page, setPage }) {
+  return (
+    <aside className={`sidebar ${open ? "open" : ""}`}>
+      <div className="brand">
+        <div className="brand-mark"><Truck size={23} /></div>
+        <span>Transit<span>Ops</span></span>
+        <button className="mobile-close" onClick={() => setOpen(false)}><X /></button>
+      </div>
+      <div className="workspace">
+        <div className="company-logo">N</div>
+        <div>
+          <b>Northstar Fleet</b>
+          <small>{user?.role || 'Operations'}</small>
+        </div>
+        <ChevronDown size={16} />
+      </div>
+      <p className="nav-label">WORKSPACE</p>
+      <nav>
+        {nav.map(([Icon, text]) => (
+          <button
+            key={text}
+            onClick={() => {
+              setPage(text);
+              setOpen(false);
+            }}
+            className={text === page ? "active" : ""}
+          >
+            <Icon size={19} />
+            <span>{text}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <button className="theme-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+          <span className="theme-track">
+            {theme === "dark" ? <Moon size={15} /> : <Sun size={15} />}
+          </span>
+          <span>{theme === "dark" ? "Dark mode" : "Light mode"}</span>
+        </button>
+        <div className="profile">
+          <div className="avatar">{user?.email?.slice(0, 2).toUpperCase() || 'OP'}</div>
+          <div>
+            <b>{user?.email?.split('@')[0] || 'User'}</b>
+            <small>{user?.role}</small>
+          </div>
+        </div>
+        <button className="sidebar-logout" onClick={onLogout}>
+          <LogOut size={17} /> Log out
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function Header({ setOpen, user }) {
+  return (
+    <header>
+      <button className="hamburger" onClick={() => setOpen(true)}><Menu size={24} /></button>
+      <div className="crumb">
+        <span>Operations</span>
+        <i>/</i>
+        <b>Dashboard</b>
+      </div>
+      <div className="header-actions">
+        <label className="search">
+          <Search size={18} />
+          <input placeholder="Search anything..." />
+          <kbd>⌘ K</kbd>
+        </label>
+        <button className="round-button">
+          <Bell size={19} />
+          <i className="notif-dot" />
+        </button>
+        <div className="header-avatar">{user?.email?.slice(0, 2).toUpperCase()}</div>
+      </div>
+    </header>
+  );
+}
+
+function Login({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("manager@transitops.com");
+  const [password, setPassword] = useState("password123");
   const [error, setError] = useState("");
-  const submit = (event) => {
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (event) => {
     event.preventDefault();
     if (!email || !password) return setError("Enter your email and password to continue.");
-    onLogin();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await client.post('/auth/login', { email, password });
+      localStorage.setItem('transitops_token', res.token);
+      localStorage.setItem('transitops_user', JSON.stringify(res.user));
+      onLoginSuccess(res.user);
+    } catch (err) {
+      setError(err.message || 'Login failed. Please check credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
-  return <div className="login-page">
-    <div className="login-glow glow-one"/><div className="login-glow glow-two"/>
-    <section className="login-visual">
-      <div className="login-brand"><div className="brand-mark"><Truck size={22}/></div><span>Transit<span>Ops</span></span></div>
-      <div className="visual-copy"><p>SMART FLEET OPERATIONS</p><h1>Every mile,<br/><em>in control.</em></h1><span>Run a safer, more efficient fleet from one powerful operations hub.</span></div>
-      <div className="route-card"><div className="route-top"><span><i className="route-origin"/> Pune Hub</span><span>09:42 AM</span></div><div className="route-line"><i/><Truck size={23}/><i/></div><div className="route-top"><span><i className="route-destination"/> Mumbai Port</span><Status color="green">On schedule</Status></div></div>
-      <div className="visual-footer"><span>© 2026 TransitOps</span><span>Secure fleet intelligence</span></div>
-    </section>
-    <section className="login-panel"><div className="login-mobile-brand"><div className="brand-mark"><Truck size={19}/></div><b>Transit<span>Ops</span></b></div><form onSubmit={submit} className="login-card">
-      <div className="login-heading"><p>WELCOME BACK</p><h2>Sign in to your workspace</h2><span>Enter your details to manage your fleet.</span></div>
-      <label className="field-label">Work email<div className="input-wrap"><Mail size={18}/><input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="you@company.com" autoComplete="email"/></div></label>
-      <label className="field-label">Password<div className="input-wrap"><LockKeyhole size={18}/><input value={password} onChange={e=>setPassword(e.target.value)} type={showPassword ? "text" : "password"} placeholder="Enter your password" autoComplete="current-password"/><button type="button" onClick={()=>setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div></label>
-      <div className="login-options"><label><input type="checkbox"/> <span>Remember me</span></label><a href="#help">Forgot password?</a></div>
-      {error && <p className="login-error">{error}</p>}<button className="login-submit" type="submit">Sign in to TransitOps <ArrowRight size={18}/></button>
-      <div className="login-divider"><span/>or continue with<span/></div><button type="button" className="sso-button" onClick={onLogin}><ShieldCheck size={18}/><span>Sign in with SSO</span></button>
-      <p className="signup-copy">New to TransitOps? <a href="#contact">Contact your administrator</a></p>
-    </form><div className="login-security"><CheckCircle2 size={15}/> Your data is protected with enterprise-grade security.</div></section>
-  </div>
+
+  return (
+    <div className="login-page">
+      <div className="login-glow glow-one" />
+      <div className="login-glow glow-two" />
+      <section className="login-visual">
+        <div className="login-brand">
+          <div className="brand-mark"><Truck size={22} /></div>
+          <span>Transit<span>Ops</span></span>
+        </div>
+        <div className="visual-copy">
+          <p>SMART FLEET OPERATIONS</p>
+          <h1>Every mile,<br /><em>in control.</em></h1>
+          <span>Run a safer, more efficient fleet from one powerful operations hub.</span>
+        </div>
+        <div className="route-card">
+          <div className="route-top">
+            <span><i className="route-origin" /> Pune Hub</span>
+            <span>09:42 AM</span>
+          </div>
+          <div className="route-line"><i /><Truck size={23} /><i /></div>
+          <div className="route-top">
+            <span><i className="route-destination" /> Mumbai Port</span>
+            <Status color="green">On schedule</Status>
+          </div>
+        </div>
+        <div className="visual-footer">
+          <span>© 2026 TransitOps</span>
+          <span>Secure fleet intelligence</span>
+        </div>
+      </section>
+      <section className="login-panel">
+        <div className="login-mobile-brand">
+          <div className="brand-mark"><Truck size={19} /></div>
+          <b>Transit<span>Ops</span></b>
+        </div>
+        <form onSubmit={submit} className="login-card">
+          <div className="login-heading">
+            <p>WELCOME BACK</p>
+            <h2>Sign in to your workspace</h2>
+            <span>Enter your details to manage your fleet.</span>
+          </div>
+          <label className="field-label">
+            Work email
+            <div className="input-wrap">
+              <Mail size={18} />
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder="you@company.com"
+                required
+              />
+            </div>
+          </label>
+          <label className="field-label">
+            Password
+            <div className="input-wrap">
+              <LockKeyhole size={18} />
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                required
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </label>
+          {error && <p className="login-error">{error}</p>}
+          <button className="login-submit" type="submit" disabled={loading}>
+            {loading ? "Signing in..." : "Sign in to TransitOps"} <ArrowRight size={18} />
+          </button>
+        </form>
+        <div className="login-security">
+          <CheckCircle2 size={15} /> Your data is protected with enterprise-grade security.
+        </div>
+      </section>
+    </div>
+  );
 }
 
-const initialVehicles = [
-  {reg:"MH 12 AB 1042", name:"Tata Prima 5530", type:"Heavy Truck", load:"28 t", odo:"84,240 km", cost:"₹42.8L", status:"Available", driver:"S. Kulkarni", fuel:"3.8 km/l"},
-  {reg:"MH 14 PK 2216", name:"Ashok Leyland 4825", type:"Heavy Truck", load:"22 t", odo:"112,780 km", cost:"₹36.2L", status:"On Trip", driver:"R. Patel", fuel:"4.1 km/l"},
-  {reg:"MH 12 VX 0889", name:"Eicher Pro 6048", type:"Medium Truck", load:"16 t", odo:"97,430 km", cost:"₹29.6L", status:"In Shop", driver:"Unassigned", fuel:"3.6 km/l"},
-  {reg:"MH 01 CN 3321", name:"Mahindra Blazo X", type:"Heavy Truck", load:"25 t", odo:"61,020 km", cost:"₹38.4L", status:"Available", driver:"V. Shah", fuel:"4.0 km/l"},
-  {reg:"MH 04 RL 1160", name:"Tata Intra V50", type:"Light Commercial", load:"1.7 t", odo:"46,810 km", cost:"₹10.9L", status:"Maintenance Due", driver:"A. More", fuel:"12.2 km/l"}
-];
+function VehiclePage({ showToast }) {
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All statuses");
+  const [selected, setSelected] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({
+    registrationNumber: "",
+    modelName: "",
+    type: "truck",
+    maxLoadCapacity: 15000,
+    odometer: 0,
+    acquisitionCost: 100000,
+  });
 
-function VehiclePage() {
-  const [vehicles, setVehicles] = useState(initialVehicles); const [query, setQuery] = useState(""); const [status, setStatus] = useState("All statuses"); const [selected, setSelected] = useState(null); const [adding, setAdding] = useState(false); const [form, setForm] = useState({reg:"",name:"",type:"Heavy Truck",load:"",odo:"0 km",cost:"₹0",status:"Available"});
-  const filtered = vehicles.filter(v => (status === "All statuses" || v.status === status) && `${v.reg} ${v.name} ${v.type}`.toLowerCase().includes(query.toLowerCase()));
-  const addVehicle = e => { e.preventDefault(); if (!form.reg || !form.name) return; const newVehicle={...form,driver:"Unassigned",fuel:"—"}; setVehicles([newVehicle,...vehicles]);setAdding(false);setForm({reg:"",name:"",type:"Heavy Truck",load:"",odo:"0 km",cost:"₹0",status:"Available"}); };
-  const updateStatus = (reg, value) => setVehicles(vehicles.map(v=>v.reg===reg?{...v,status:value}:v));
-  return <div className="vehicle-page"><div className="vehicle-title"><div><p className="eyebrow">FLEET MANAGEMENT</p><h1>Vehicle registry</h1><p className="subtitle">Manage vehicle availability, records, and maintenance.</p></div><button className="primary" onClick={()=>setAdding(true)}><Plus size={17}/> Add vehicle</button></div><div className="vehicle-summary"><Card><IconTile icon={Truck} color="blue"/><div><span>Total vehicles</span><b>{vehicles.length}</b></div></Card><Card><IconTile icon={ShieldCheck} color="green"/><div><span>Available now</span><b>{vehicles.filter(v=>v.status==="Available").length}</b></div></Card><Card><IconTile icon={Activity} color="purple"/><div><span>Currently on trip</span><b>{vehicles.filter(v=>v.status==="On Trip").length}</b></div></Card><Card><IconTile icon={ToolCase} color="amber"/><div><span>Service attention</span><b>{vehicles.filter(v=>v.status.includes("Maintenance")||v.status==="In Shop").length}</b></div></Card></div><Card className="registry-card"><div className="registry-toolbar"><label className="registry-search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search registration, model, or type..."/></label><select value={status} onChange={e=>setStatus(e.target.value)}><option>All statuses</option><option>Available</option><option>On Trip</option><option>In Shop</option><option>Maintenance Due</option></select><button className="filter"><FileText size={16}/> Export CSV</button></div><div className="registry-count"><span><b>{filtered.length}</b> vehicles</span><span>Click a row to view full details</span></div><div className="vehicle-table-wrap"><table className="vehicle-table"><thead><tr><th>Vehicle</th><th>Type</th><th>Max load</th><th>Odometer</th><th>Acquisition cost</th><th>Status</th><th/></tr></thead><tbody>{filtered.map(v=><tr key={v.reg} onClick={()=>setSelected(v)}><td><div className="vehicle-identity"><div className="vehicle-symbol"><Truck size={18}/></div><span><b>{v.reg}</b><small>{v.name}</small></span></div></td><td>{v.type}</td><td>{v.load}</td><td>{v.odo}</td><td>{v.cost}</td><td><span className={`vehicle-status ${v.status.toLowerCase().replaceAll(" ","-")}`}><i/>{v.status}</span></td><td><button className="row-action" onClick={e=>{e.stopPropagation();setSelected(v)}}><MoreHorizontal size={18}/></button></td></tr>)}</tbody></table></div></Card>{selected && <><div className="vehicle-overlay" onClick={()=>setSelected(null)}/><aside className="vehicle-drawer"><button className="panel-close" onClick={()=>setSelected(null)}><X size={18}/></button><div className="drawer-vehicle-art"><Truck size={54}/><span>{selected.type}</span></div><p className="eyebrow">VEHICLE DETAILS</p><h2>{selected.name}</h2><h3>{selected.reg}</h3><div className="drawer-status"><span className={`vehicle-status ${selected.status.toLowerCase().replaceAll(" ","-")}`}><i/>{selected.status}</span><select value={selected.status} onChange={e=>{updateStatus(selected.reg,e.target.value);setSelected({...selected,status:e.target.value})}}><option>Available</option><option>On Trip</option><option>In Shop</option><option>Maintenance Due</option></select></div><div className="drawer-grid"><span>Assigned driver<b>{selected.driver}</b></span><span>Fuel efficiency<b>{selected.fuel}</b></span><span>Odometer<b>{selected.odo}</b></span><span>Capacity<b>{selected.load}</b></span></div><div className="maintenance-history"><div className="drawer-section-title"><b>Maintenance history</b><button><Plus size={14}/> Log service</button></div><div><i/><span><b>Scheduled inspection</b><small>Due in 12 days · 96,000 km</small></span></div><div><i/><span><b>Oil and filter change</b><small>Completed · 18 Jun 2026</small></span></div></div><button className="drawer-edit"><Pencil size={16}/> Edit vehicle information</button></aside></>}{adding && <><div className="vehicle-overlay" onClick={()=>setAdding(false)}/><form className="add-vehicle-modal" onSubmit={addVehicle}><button type="button" className="panel-close" onClick={()=>setAdding(false)}><X size={18}/></button><p className="eyebrow">NEW FLEET ASSET</p><h2>Add vehicle</h2><div className="vehicle-form-grid"><label>Registration number<input value={form.reg} onChange={e=>setForm({...form,reg:e.target.value})} placeholder="MH 12 AB 0000" required/></label><label>Model<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Vehicle model" required/></label><label>Vehicle type<select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}><option>Heavy Truck</option><option>Medium Truck</option><option>Light Commercial</option></select></label><label>Maximum load<input value={form.load} onChange={e=>setForm({...form,load:e.target.value})} placeholder="e.g. 20 t"/></label><label>Odometer<input value={form.odo} onChange={e=>setForm({...form,odo:e.target.value})} placeholder="e.g. 0 km"/></label><label>Acquisition cost<input value={form.cost} onChange={e=>setForm({...form,cost:e.target.value})} placeholder="e.g. ₹20L"/></label></div><button className="login-submit" type="submit">Add to vehicle registry <ArrowRight size={17}/></button></form></>}</div>
+  const fetchVehicles = async () => {
+    try {
+      setLoading(true);
+      const res = await client.get('/api/vehicles');
+      setVehicles(res);
+    } catch (err) {
+      showToast(err.message, "red");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const addVehicle = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await client.post('/api/vehicles', form);
+      showToast("Vehicle registered successfully", "green");
+      setAdding(false);
+      setForm({
+        registrationNumber: "",
+        modelName: "",
+        type: "truck",
+        maxLoadCapacity: 15000,
+        odometer: 0,
+        acquisitionCost: 100000,
+      });
+      fetchVehicles();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  const handleRetire = async (id) => {
+    try {
+      await client.put(`/api/vehicles/${id}/retire`);
+      showToast("Vehicle status updated to Retired", "green");
+      setSelected(null);
+      fetchVehicles();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this vehicle registry?")) return;
+    try {
+      await client.delete(`/api/vehicles/${id}`);
+      showToast("Vehicle removed from registry", "green");
+      setSelected(null);
+      fetchVehicles();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  const filtered = vehicles.filter(v => 
+    (statusFilter === "All statuses" || v.status === statusFilter) &&
+    `${v.registrationNumber} ${v.modelName} ${v.type}`.toLowerCase().includes(query.toLowerCase())
+  );
+
+  return (
+    <div className="vehicle-page">
+      <div className="vehicle-title">
+        <div>
+          <p className="eyebrow">FLEET MANAGEMENT</p>
+          <h1>Vehicle registry</h1>
+          <p className="subtitle">Manage vehicle availability, status, and maintenance windows.</p>
+        </div>
+        <button className="primary" onClick={() => setAdding(true)}><Plus size={17} /> Add vehicle</button>
+      </div>
+
+      <div className="vehicle-summary">
+        <Card><IconTile icon={Truck} color="blue" /><div><span>Total vehicles</span><b>{vehicles.length}</b></div></Card>
+        <Card><IconTile icon={ShieldCheck} color="green" /><div><span>Available now</span><b>{vehicles.filter(v => v.status === "Available").length}</b></div></Card>
+        <Card><IconTile icon={Activity} color="purple" /><div><span>On Trip</span><b>{vehicles.filter(v => v.status === "On Trip").length}</b></div></Card>
+        <Card><IconTile icon={ToolCase} color="amber" /><div><span>In Shop</span><b>{vehicles.filter(v => v.status === "In Shop").length}</b></div></Card>
+      </div>
+
+      <Card className="registry-card">
+        <div className="registry-toolbar">
+          <label className="registry-search">
+            <Search size={18} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search registration, model..." />
+          </label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option>All statuses</option>
+            <option>Available</option>
+            <option>On Trip</option>
+            <option>In Shop</option>
+            <option>Retired</option>
+          </select>
+          <button className="filter" onClick={() => window.open('http://localhost:3000/api/reports/export?type=vehicles')}>
+            <FileText size={16} /> Export CSV
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="loading-state">Loading registry...</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state">No vehicles matched your search filter.</div>
+        ) : (
+          <div className="vehicle-table-wrap">
+            <table className="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Vehicle</th>
+                  <th>Type</th>
+                  <th>Max load capacity</th>
+                  <th>Odometer</th>
+                  <th>Acquisition cost</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(v => (
+                  <tr key={v.id} onClick={() => setSelected(v)}>
+                    <td>
+                      <div className="vehicle-identity">
+                        <div className="vehicle-symbol"><Truck size={18} /></div>
+                        <span><b>{v.registrationNumber}</b><small>{v.modelName}</small></span>
+                      </div>
+                    </td>
+                    <td>{v.type}</td>
+                    <td>{v.maxLoadCapacity} kg</td>
+                    <td>{v.odometer} km</td>
+                    <td>₹{v.acquisitionCost}</td>
+                    <td>
+                      <span className={`vehicle-status ${v.status.toLowerCase().replaceAll(" ", "-")}`}>
+                        <i />{v.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="row-action" onClick={(e) => { e.stopPropagation(); setSelected(v); }}>
+                        <MoreHorizontal size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {selected && (
+        <>
+          <div className="vehicle-overlay" onClick={() => setSelected(null)} />
+          <aside className="vehicle-drawer">
+            <button className="panel-close" onClick={() => setSelected(null)}><X size={18} /></button>
+            <div className="drawer-vehicle-art">
+              <Truck size={54} />
+              <span>{selected.type}</span>
+            </div>
+            <p className="eyebrow">VEHICLE DETAILS</p>
+            <h2>{selected.modelName}</h2>
+            <h3>{selected.registrationNumber}</h3>
+            
+            <div className="drawer-status">
+              <span className={`vehicle-status ${selected.status.toLowerCase().replaceAll(" ", "-")}`}>
+                <i />{selected.status}
+              </span>
+            </div>
+
+            <div className="drawer-grid">
+              <span>Capacity<b>{selected.maxLoadCapacity} kg</b></span>
+              <span>Odometer<b>{selected.odometer} km</b></span>
+              <span>Acquisition Cost<b>₹{selected.acquisitionCost}</b></span>
+            </div>
+
+            <div className="drawer-actions-row" style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+              <button 
+                className="filter" 
+                onClick={() => handleRetire(selected.id)} 
+                disabled={selected.status === 'Retired' || selected.status === 'On Trip'}
+                style={{ flex: 1, borderColor: '#f3b748', color: '#f3b748' }}
+              >
+                Retire Asset
+              </button>
+              <button 
+                className="filter" 
+                onClick={() => handleDelete(selected.id)} 
+                disabled={selected.status === 'On Trip'}
+                style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444' }}
+              >
+                Delete Registry
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {adding && (
+        <>
+          <div className="vehicle-overlay" onClick={() => setAdding(false)} />
+          <form className="add-vehicle-modal" onSubmit={addVehicle}>
+            <button type="button" className="panel-close" onClick={() => setAdding(false)}><X size={18} /></button>
+            <p className="eyebrow">NEW FLEET ASSET</p>
+            <h2>Register vehicle</h2>
+            <div className="vehicle-form-grid">
+              <label>
+                Registration number
+                <input
+                  value={form.registrationNumber}
+                  onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })}
+                  placeholder="e.g. MH 12 AB 1042"
+                  required
+                />
+              </label>
+              <label>
+                Model name
+                <input
+                  value={form.modelName}
+                  onChange={(e) => setForm({ ...form, modelName: e.target.value })}
+                  placeholder="e.g. Volvo VNL 860"
+                  required
+                />
+              </label>
+              <label>
+                Vehicle type
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                  <option value="truck">Heavy Truck</option>
+                  <option value="van">Van</option>
+                  <option value="bus">Bus</option>
+                  <option value="car">Car</option>
+                </select>
+              </label>
+              <label>
+                Max capacity (kg)
+                <input
+                  type="number"
+                  value={form.maxLoadCapacity}
+                  onChange={(e) => setForm({ ...form, maxLoadCapacity: parseFloat(e.target.value) })}
+                  required
+                />
+              </label>
+              <label>
+                Initial odometer (km)
+                <input
+                  type="number"
+                  value={form.odometer}
+                  onChange={(e) => setForm({ ...form, odometer: parseFloat(e.target.value) })}
+                />
+              </label>
+              <label>
+                Acquisition cost (INR)
+                <input
+                  type="number"
+                  value={form.acquisitionCost}
+                  onChange={(e) => setForm({ ...form, acquisitionCost: parseFloat(e.target.value) })}
+                />
+              </label>
+            </div>
+            <button className="login-submit" type="submit">Add to registry <ArrowRight size={17} /></button>
+          </form>
+        </>
+      )}
+    </div>
+  );
 }
 
-function TripModal({ onClose, onCreate }) {
-  const [step, setStep] = useState(1); const [form, setForm] = useState({from:"Pune Hub",to:"",vehicle:"TR-104 · Tata Prima",driver:"S. Kulkarni",cargo:""});
-  const canNext = step === 1 ? form.from && form.to : step === 2 ? form.vehicle && form.driver : form.cargo;
-  return <><div className="vehicle-overlay" onClick={onClose}/><section className="trip-modal"><button className="panel-close" onClick={onClose}><X size={18}/></button><p className="eyebrow">NEW DISPATCH</p><h2>Create a trip</h2><div className="trip-steps">{["Route","Assignment","Cargo","Review"].map((label,index)=><span key={label} className={step>=index+1?"current":""}><i>{index+1}</i>{label}</span>)}</div>{step===1&&<div className="trip-form"><label>Pickup location<input value={form.from} onChange={e=>setForm({...form,from:e.target.value})}/></label><label>Destination<input value={form.to} onChange={e=>setForm({...form,to:e.target.value})} placeholder="e.g. Mumbai Port" autoFocus/></label><div className="trip-validation"><MapPin size={16}/> Route distance and ETA will be calculated after dispatch.</div></div>}{step===2&&<div className="trip-form"><label>Available vehicle<select value={form.vehicle} onChange={e=>setForm({...form,vehicle:e.target.value})}><option>TR-104 · Tata Prima</option><option>TR-332 · Mahindra Blazo X</option></select></label><label>Driver on duty<select value={form.driver} onChange={e=>setForm({...form,driver:e.target.value})}><option>S. Kulkarni</option><option>V. Shah</option></select></label><div className="trip-validation good"><ShieldCheck size={16}/> Vehicle is available and driver license is valid.</div></div>}{step===3&&<div className="trip-form"><label>Cargo description<input placeholder="e.g. Packaging material"/></label><label>Cargo weight<input value={form.cargo} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="e.g. 12 tonnes" autoFocus/></label><div className="trip-validation good"><ShieldCheck size={16}/> Within the selected vehicle’s 28 t capacity.</div></div>}{step===4&&<div className="trip-review"><span>Route<b>{form.from} → {form.to}</b></span><span>Vehicle<b>{form.vehicle}</b></span><span>Driver<b>{form.driver}</b></span><span>Cargo<b>{form.cargo}</b></span><div className="trip-validation good"><ShieldCheck size={16}/> Ready to dispatch. All validations passed.</div></div>}<div className="trip-modal-actions"><button className="filter" onClick={()=>step===1?onClose():setStep(step-1)}>{step===1?"Cancel":"Back"}</button><button className="primary" disabled={!canNext&&step<4} onClick={()=>step===4?onCreate(form):setStep(step+1)}>{step===4?"Create trip":"Continue"}<ArrowRight size={16}/></button></div></section></>
+function DriversPage({ showToast }) {
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    licenseNumber: "",
+    licenseCategory: "CDL-A",
+    licenseExpiryDate: "",
+    contactNumber: "",
+    safetyScore: 95.0,
+    status: "Available"
+  });
+
+  const fetchDrivers = async () => {
+    try {
+      setLoading(true);
+      const res = await client.get('/api/drivers');
+      setDrivers(res);
+    } catch (err) {
+      showToast(err.message, "red");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDrivers();
+  }, []);
+
+  const addDriver = async (e) => {
+    e.preventDefault();
+    try {
+      await client.post('/api/drivers', form);
+      showToast("Driver registered successfully", "green");
+      setAdding(false);
+      setForm({
+        name: "",
+        licenseNumber: "",
+        licenseCategory: "CDL-A",
+        licenseExpiryDate: "",
+        contactNumber: "",
+        safetyScore: 95.0,
+        status: "Available"
+      });
+      fetchDrivers();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  return (
+    <div className="vehicle-page">
+      <div className="vehicle-title">
+        <div>
+          <p className="eyebrow">DRIVER MANAGEMENT</p>
+          <h1>Driver registry</h1>
+          <p className="subtitle">Manage operator profiles, safety compliance, and license expirations.</p>
+        </div>
+        <button className="primary" onClick={() => setAdding(true)}><Plus size={17} /> Add driver</button>
+      </div>
+
+      <Card className="registry-card">
+        {loading ? (
+          <div className="loading-state">Loading drivers registry...</div>
+        ) : drivers.length === 0 ? (
+          <div className="empty-state">No drivers registered.</div>
+        ) : (
+          <div className="vehicle-table-wrap">
+            <table className="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Driver Name</th>
+                  <th>License Number</th>
+                  <th>Category</th>
+                  <th>License Expiration</th>
+                  <th>Contact</th>
+                  <th>Safety Score</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drivers.map(d => (
+                  <tr key={d.id}>
+                    <td><b>{d.name}</b></td>
+                    <td>{d.licenseNumber}</td>
+                    <td>{d.licenseCategory}</td>
+                    <td>{new Date(d.licenseExpiryDate).toLocaleDateString()}</td>
+                    <td>{d.contactNumber}</td>
+                    <td>{d.safetyScore} %</td>
+                    <td>
+                      <span className={`vehicle-status ${d.status.toLowerCase().replaceAll(" ", "-")}`}>
+                        <i />{d.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {adding && (
+        <>
+          <div className="vehicle-overlay" onClick={() => setAdding(false)} />
+          <form className="add-vehicle-modal" onSubmit={addDriver}>
+            <button type="button" className="panel-close" onClick={() => setAdding(false)}><X size={18} /></button>
+            <p className="eyebrow">NEW OPERATOR asset</p>
+            <h2>Add driver</h2>
+            <div className="vehicle-form-grid">
+              <label>
+                Full Name
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. John Doe"
+                  required
+                />
+              </label>
+              <label>
+                License Number
+                <input
+                  value={form.licenseNumber}
+                  onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
+                  placeholder="e.g. DL-12345"
+                  required
+                />
+              </label>
+              <label>
+                License Category
+                <select value={form.licenseCategory} onChange={(e) => setForm({ ...form, licenseCategory: e.target.value })}>
+                  <option value="CDL-A">CDL Heavy Class A</option>
+                  <option value="CDL-B">CDL Class B</option>
+                  <option value="Light-Class">Light Commercial</option>
+                </select>
+              </label>
+              <label>
+                License Expiration Date
+                <input
+                  type="date"
+                  value={form.licenseExpiryDate}
+                  onChange={(e) => setForm({ ...form, licenseExpiryDate: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Contact Number
+                <input
+                  value={form.contactNumber}
+                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+                  placeholder="e.g. 555-0100"
+                  required
+                />
+              </label>
+              <label>
+                Safety Rating (%)
+                <input
+                  type="number"
+                  step="0.1"
+                  value={form.safetyScore}
+                  onChange={(e) => setForm({ ...form, safetyScore: parseFloat(e.target.value) })}
+                />
+              </label>
+            </div>
+            <button className="login-submit" type="submit">Register Driver <ArrowRight size={17} /></button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TripsPage({ showToast }) {
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchTrips = async () => {
+    try {
+      setLoading(true);
+      const res = await client.get('/api/trips');
+      setTrips(res);
+    } catch (err) {
+      showToast(err.message, "red");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
+
+  const handleAction = async (id, action) => {
+    try {
+      await client.put(`/api/trips/${id}/${action}`);
+      showToast(`Trip ${action} successfully`, "green");
+      fetchTrips();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  return (
+    <div className="vehicle-page">
+      <div className="vehicle-title">
+        <div>
+          <p className="eyebrow">LIVE RUN LOGS</p>
+          <h1>Trips & dispatch board</h1>
+          <p className="subtitle">Track transit schedules, dispatch operations, and resource handbacks.</p>
+        </div>
+      </div>
+
+      <Card className="registry-card">
+        {loading ? (
+          <div className="loading-state">Loading trip board...</div>
+        ) : trips.length === 0 ? (
+          <div className="empty-state">No trips found. Use the Dashboard to create one.</div>
+        ) : (
+          <div className="vehicle-table-wrap">
+            <table className="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Vehicle Registration</th>
+                  <th>Driver assigned</th>
+                  <th>Cargo load</th>
+                  <th>Planned Distance</th>
+                  <th>Revenue</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trips.map(t => (
+                  <tr key={t.id}>
+                    <td><b>{t.source} → {t.destination}</b></td>
+                    <td>{t.vehicle?.registrationNumber || 'Unassigned'}</td>
+                    <td>{t.driver?.name || 'Unassigned'}</td>
+                    <td>{t.cargoWeight} kg</td>
+                    <td>{t.plannedDistance} km</td>
+                    <td>₹{t.revenue}</td>
+                    <td>
+                      <span className={`vehicle-status ${t.status.toLowerCase().replaceAll(" ", "-")}`}>
+                        <i />{t.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {t.status === 'Draft' && (
+                          <button className="primary" onClick={() => handleAction(t.id, 'dispatch')} style={{ padding: '4px 8px', fontSize: '11px' }}>
+                            Dispatch
+                          </button>
+                        )}
+                        {t.status === 'Dispatched' && (
+                          <>
+                            <button className="primary" onClick={() => handleAction(t.id, 'complete')} style={{ padding: '4px 8px', fontSize: '11px', background: '#22c55e' }}>
+                              Complete
+                            </button>
+                            <button className="filter" onClick={() => handleAction(t.id, 'cancel')} style={{ padding: '4px 8px', fontSize: '11px', borderColor: '#ef4444', color: '#ef4444' }}>
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {t.status === 'Completed' && <span style={{ color: '#22c55e', fontSize: '11px' }}>Done</span>}
+                        {t.status === 'Cancelled' && <span style={{ color: '#ef4444', fontSize: '11px' }}>Cancelled</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function MaintenancePage({ showToast }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [vehicles, setVehicles] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({
+    vehicleId: "",
+    description: "",
+    startDate: new Date().toISOString().split('T')[0],
+    cost: 0
+  });
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [logsRes, vehiclesRes] = await Promise.all([
+        client.get('/api/maintenance'),
+        client.get('/api/vehicles')
+      ]);
+      setLogs(logsRes);
+      setVehicles(vehiclesRes.filter(v => v.status === "Available"));
+      if (vehiclesRes.length > 0) {
+        setForm(f => ({ ...f, vehicleId: vehiclesRes[0].id }));
+      }
+    } catch (err) {
+      showToast(err.message, "red");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const openLog = async (e) => {
+    e.preventDefault();
+    if (!form.vehicleId) return showToast("Select an available vehicle first", "red");
+    try {
+      await client.post('/api/maintenance', form);
+      showToast("Maintenance ticket logged, vehicle set to In Shop", "green");
+      setAdding(false);
+      fetchData();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  const closeLog = async (id) => {
+    const costInput = window.prompt("Enter total maintenance expense cost (INR):", "500");
+    if (costInput === null) return;
+    const cost = parseFloat(costInput) || 0;
+    try {
+      await client.put(`/api/maintenance/${id}/close`, { cost });
+      showToast("Maintenance closed, vehicle returned to Available status", "green");
+      fetchData();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  return (
+    <div className="vehicle-page">
+      <div className="vehicle-title">
+        <div>
+          <p className="eyebrow">FLEET CARE</p>
+          <h1>Maintenance history & logs</h1>
+          <p className="subtitle">Schedule periodic care, emergency fixes, and track vehicle repair states.</p>
+        </div>
+        <button className="primary" onClick={() => setAdding(true)}><Plus size={17} /> Open ticket</button>
+      </div>
+
+      <Card className="registry-card">
+        {loading ? (
+          <div className="loading-state">Loading maintenance logs...</div>
+        ) : logs.length === 0 ? (
+          <div className="empty-state">No maintenance records logged.</div>
+        ) : (
+          <div className="vehicle-table-wrap">
+            <table className="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Vehicle Registration</th>
+                  <th>Description</th>
+                  <th>Service Start</th>
+                  <th>Completion Date</th>
+                  <th>Reported Cost</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map(l => (
+                  <tr key={l.id}>
+                    <td><b>{l.vehicle?.registrationNumber}</b></td>
+                    <td>{l.description}</td>
+                    <td>{new Date(l.startDate).toLocaleDateString()}</td>
+                    <td>{l.endDate ? new Date(l.endDate).toLocaleDateString() : 'In Progress'}</td>
+                    <td>₹{l.cost}</td>
+                    <td>
+                      <span className={`vehicle-status ${l.status === 'Open' ? 'in-shop' : 'available'}`}>
+                        <i />{l.status === 'Open' ? 'In Maintenance' : 'Completed'}
+                      </span>
+                    </td>
+                    <td>
+                      {l.status === 'Open' ? (
+                        <button className="primary" onClick={() => closeLog(l.id)} style={{ padding: '4px 8px', fontSize: '11px' }}>
+                          Close Service
+                        </button>
+                      ) : (
+                        <span style={{ color: '#22c55e', fontSize: '11px' }}>Closed</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {adding && (
+        <>
+          <div className="vehicle-overlay" onClick={() => setAdding(false)} />
+          <form className="add-vehicle-modal" onSubmit={openLog}>
+            <button type="button" className="panel-close" onClick={() => setAdding(false)}><X size={18} /></button>
+            <p className="eyebrow">FLEET MAINTENANCE WINDOW</p>
+            <h2>Log service ticket</h2>
+            <div className="vehicle-form-grid">
+              <label>
+                Select Vehicle
+                <select value={form.vehicleId} onChange={(e) => setForm({ ...form, vehicleId: e.target.value })} required>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registrationNumber} ({v.modelName})</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Service Description
+                <input
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="e.g. Oil change and brake system tuning"
+                  required
+                />
+              </label>
+              <label>
+                Maintenance Start Date
+                <input
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Estimated Base Cost
+                <input
+                  type="number"
+                  value={form.cost}
+                  onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) })}
+                />
+              </label>
+            </div>
+            <button className="login-submit" type="submit">Open Maintenance Log <ArrowRight size={17} /></button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ExpensesPage({ showToast }) {
+  const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [vehicles, setVehicles] = useState([]);
+  const [form, setForm] = useState({
+    vehicleId: "",
+    type: "Fuel",
+    metricUnits: 0,
+    cost: 0,
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [expRes, vehRes] = await Promise.all([
+        client.get('/api/expenses'),
+        client.get('/api/vehicles')
+      ]);
+      setExpenses(expRes);
+      setVehicles(vehRes);
+      if (vehRes.length > 0) {
+        setForm(f => ({ ...f, vehicleId: vehRes[0].id }));
+      }
+    } catch (err) {
+      showToast(err.message, "red");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const addExpense = async (e) => {
+    e.preventDefault();
+    if (!form.vehicleId) return showToast("Select a vehicle first", "red");
+    try {
+      await client.post('/api/expenses', form);
+      showToast("Expense logged successfully", "green");
+      setAdding(false);
+      fetchData();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  return (
+    <div className="vehicle-page">
+      <div className="vehicle-title">
+        <div>
+          <p className="eyebrow">OPERATION FINANCES</p>
+          <h1>Expense & fuel registry</h1>
+          <p className="subtitle">Monitor operational expenses, toll sheets, and diesel fuel tracking.</p>
+        </div>
+        <button className="primary" onClick={() => setAdding(true)}><Plus size={17} /> Record expense</button>
+      </div>
+
+      <Card className="registry-card">
+        {loading ? (
+          <div className="loading-state">Loading expenses log...</div>
+        ) : expenses.length === 0 ? (
+          <div className="empty-state">No expenses found.</div>
+        ) : (
+          <div className="vehicle-table-wrap">
+            <table className="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Log Date</th>
+                  <th>Category</th>
+                  <th>Metric Units</th>
+                  <th>Cost Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map(e => (
+                  <tr key={e.id}>
+                    <td>{new Date(e.date).toLocaleDateString()}</td>
+                    <td><b>{e.type}</b></td>
+                    <td>{e.metricUnits ? `${e.metricUnits} L` : '—'}</td>
+                    <td>₹{e.cost}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {adding && (
+        <>
+          <div className="vehicle-overlay" onClick={() => setAdding(false)} />
+          <form className="add-vehicle-modal" onSubmit={addExpense}>
+            <button type="button" className="panel-close" onClick={() => setAdding(false)}><X size={18} /></button>
+            <p className="eyebrow">FINANCIAL LEDGER</p>
+            <h2>Log expense</h2>
+            <div className="vehicle-form-grid">
+              <label>
+                Select Vehicle
+                <select value={form.vehicleId} onChange={(e) => setForm({ ...form, vehicleId: e.target.value })} required>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registrationNumber} ({v.modelName})</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Category
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                  <option value="Fuel">Fuel</option>
+                  <option value="Toll">Tolls</option>
+                  <option value="Misc">Misc / Other</option>
+                </select>
+              </label>
+              {form.type === "Fuel" && (
+                <label>
+                  Liters
+                  <input
+                    type="number"
+                    value={form.metricUnits}
+                    onChange={(e) => setForm({ ...form, metricUnits: parseFloat(e.target.value) })}
+                    required
+                  />
+                </label>
+              )}
+              <label>
+                Total cost (INR)
+                <input
+                  type="number"
+                  value={form.cost}
+                  onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) })}
+                  required
+                />
+              </label>
+              <label>
+                Date
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  required
+                />
+              </label>
+            </div>
+            <button className="login-submit" type="submit">Record Expense <ArrowRight size={17} /></button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TripModal({ onClose, onCreate, showToast }) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    source: "",
+    destination: "",
+    vehicleId: "",
+    driverId: "",
+    cargoWeight: 10000,
+    plannedDistance: 100,
+    revenue: 5000,
+  });
+
+  const [availableVehicles, setAvailableVehicles] = useState([]);
+  const [availableDrivers, setAvailableDrivers] = useState([]);
+
+  useEffect(() => {
+    if (step === 2) {
+      // Fetch available operators and fleet assets from state endpoints
+      Promise.all([
+        client.get('/api/trips/available/vehicles'),
+        client.get('/api/trips/available/drivers')
+      ]).then(([vehiclesRes, driversRes]) => {
+        setAvailableVehicles(vehiclesRes);
+        setAvailableDrivers(driversRes);
+        setForm(f => ({
+          ...f,
+          vehicleId: vehiclesRes[0]?.id || "",
+          driverId: driversRes[0]?.id || ""
+        }));
+      }).catch((err) => {
+        showToast(err.message, "red");
+      });
+    }
+  }, [step]);
+
+  const canNext = step === 1
+    ? form.source && form.destination
+    : step === 2
+    ? form.vehicleId && form.driverId
+    : form.cargoWeight;
+
+  return (
+    <>
+      <div className="vehicle-overlay" onClick={onClose} />
+      <section className="trip-modal">
+        <button className="panel-close" onClick={onClose}><X size={18} /></button>
+        <p className="eyebrow">NEW DISPATCH</p>
+        <h2>Create a trip</h2>
+        <div className="trip-steps">
+          {["Route", "Assignment", "Cargo", "Review"].map((label, index) => (
+            <span key={label} className={step >= index + 1 ? "current" : ""}>
+              <i>{index + 1}</i>{label}
+            </span>
+          ))}
+        </div>
+
+        {step === 1 && (
+          <div className="trip-form">
+            <label>
+              Pickup location
+              <input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="e.g. Pune Hub" />
+            </label>
+            <label>
+              Destination
+              <input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="e.g. Mumbai Port" />
+            </label>
+            <label>
+              Planned Distance (km)
+              <input type="number" value={form.plannedDistance} onChange={(e) => setForm({ ...form, plannedDistance: parseFloat(e.target.value) })} />
+            </label>
+            <label>
+              Projected Revenue (INR)
+              <input type="number" value={form.revenue} onChange={(e) => setForm({ ...form, revenue: parseFloat(e.target.value) })} />
+            </label>
+            <div className="trip-validation"><MapPin size={16} /> Route distance will check fuel projections.</div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="trip-form">
+            <label>
+              Available vehicle
+              <select value={form.vehicleId} onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}>
+                {availableVehicles.length === 0 ? (
+                  <option value="">No vehicles available</option>
+                ) : (
+                  availableVehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registrationNumber} ({v.modelName})</option>
+                  ))
+                )}
+              </select>
+            </label>
+            <label>
+              Driver on duty
+              <select value={form.driverId} onChange={(e) => setForm({ ...form, driverId: e.target.value })}>
+                {availableDrivers.length === 0 ? (
+                  <option value="">No drivers available</option>
+                ) : (
+                  availableDrivers.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} (Safety Score: {d.safetyScore}%)</option>
+                  ))
+                )}
+              </select>
+            </label>
+            <div className="trip-validation good"><ShieldCheck size={16} /> Eligible operators and assets.</div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="trip-form">
+            <label>
+              Cargo weight (kg)
+              <input type="number" value={form.cargoWeight} onChange={(e) => setForm({ ...form, cargoWeight: parseFloat(e.target.value) })} />
+            </label>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="trip-review">
+            <span>Route<b>{form.source} → {form.destination}</b></span>
+            <span>Vehicle ID<b>{form.vehicleId}</b></span>
+            <span>Driver ID<b>{form.driverId}</b></span>
+            <span>Cargo load<b>{form.cargoWeight} kg</b></span>
+            <div className="trip-validation good"><ShieldCheck size={16} /> Ready to commit to state machine.</div>
+          </div>
+        )}
+
+        <div className="trip-modal-actions">
+          <button className="filter" onClick={() => step === 1 ? onClose() : setStep(step - 1)}>
+            {step === 1 ? "Cancel" : "Back"}
+          </button>
+          <button className="primary" disabled={!canNext && step < 4} onClick={() => step === 4 ? onCreate(form) : setStep(step + 1)}>
+            {step === 4 ? "Dispatch trip" : "Continue"}<ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+    </>
+  );
 }
 
 function App() {
-  const [theme, setTheme] = useState("light"); const [open, setOpen] = useState(false); const [notice, setNotice] = useState(false); const [authenticated, setAuthenticated] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [page, setPage] = useState("Dashboard"); const [tripModal, setTripModal] = useState(false); const [period, setPeriod] = useState("This week"); const [fleetFilter, setFleetFilter] = useState("All vehicles"); const [availability, setAvailability] = useState("Available"); const [region, setRegion] = useState("All regions"); const [tripCount, setTripCount] = useState(47);
-  const today = useMemo(() => new Intl.DateTimeFormat("en", {weekday:"long", month:"long", day:"numeric"}).format(new Date()), []);
-  if (!authenticated) return <Login onLogin={() => setAuthenticated(true)}/>;
-  const logout = () => { setProfileOpen(false); setOpen(false); setAuthenticated(false); };
-  return <div className={`app ${theme}`}><Sidebar {...{open,setOpen,theme,setTheme,page,setPage}} onProfile={() => setProfileOpen(true)} onLogout={logout}/><main><Header setOpen={setOpen} onProfile={() => setProfileOpen(true)}/><div className="content">{page === "Vehicles" ? <VehiclePage/> : <>
-    <div className="title-row"><div><p className="eyebrow">{today}</p><h1>Good morning, Arjun <span>👋</span></h1><p className="subtitle">Here’s what’s happening across your fleet today.</p></div><div className="title-actions"><select className="filter dashboard-select" value={period} onChange={e=>setPeriod(e.target.value)}><option>This week</option><option>Last 7 days</option><option>This month</option><option>Last quarter</option></select><button className="primary" onClick={() => setTripModal(true)}><Zap size={17}/> Create trip</button></div></div>
-    <div className="filters dashboard-filters"><select value={fleetFilter} onChange={e=>setFleetFilter(e.target.value)}><option>All vehicles</option><option>Heavy trucks</option><option>Medium trucks</option><option>Light commercial</option></select><select value={availability} onChange={e=>setAvailability(e.target.value)}><option>Available</option><option>All statuses</option><option>On trip</option><option>In maintenance</option></select><select value={region} onChange={e=>setRegion(e.target.value)}><option>All regions</option><option>Pune</option><option>Mumbai</option><option>Nashik</option></select><span>Showing {fleetFilter.toLowerCase()} · {availability.toLowerCase()} · {region.toLowerCase()}</span></div>
-    <div className="kpi-grid"><Kpi icon={Truck} color="blue" value={fleetFilter === "All vehicles" ? "128" : fleetFilter === "Heavy trucks" ? "68" : "30"} label="Active vehicles" change="8.2%"/><Kpi icon={ShieldCheck} color="green" value={availability === "Available" ? "84" : "96"} label="Available vehicles" change="5.4%"/><Kpi icon={ToolCase} color="amber" value="12" label="In maintenance" change="2.1%" down/><Kpi icon={Activity} color="purple" value={tripCount} label="Active trips" change="12.6%"/></div>
-    <div className="metrics-row"><Card className="util"><div className="card-heading"><div><p>FLEET PERFORMANCE</p><h2>Fleet utilization</h2></div><button className="mini-select">This week <ChevronDown size={14}/></button></div><div className="chart-stats"><strong>76.4%</strong><span className="positive"><ArrowUpRight/> 4.8%</span><small>vs. 71.6% last week</small></div><div className="area-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={utilization} margin={{top:10,right:4,left:-24,bottom:0}}><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#377dff" stopOpacity=".28"/><stop offset="100%" stopColor="#377dff" stopOpacity="0"/></linearGradient></defs><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:"#91a0b8",fontSize:11}}/><YAxis axisLine={false} tickLine={false} tick={{fill:"#91a0b8",fontSize:11}} domain={[40,100]}/><Tooltip/><Area type="monotone" dataKey="value" stroke="#377dff" strokeWidth={3} fill="url(#area)"/></AreaChart></ResponsiveContainer></div></Card>
-      <Card className="efficiency"><div className="card-heading"><div><p>FLEET INSIGHT</p><h2>Fuel efficiency</h2></div><button className="icon-button"><MoreHorizontal size={18}/></button></div><div className="bar-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={efficiency} margin={{top:15,right:0,left:-28,bottom:0}}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:"#91a0b8",fontSize:10}}/><YAxis axisLine={false} tickLine={false} tick={{fill:"#91a0b8",fontSize:10}}/><Tooltip/><Bar dataKey="value" fill="#8b6df6" radius={[7,7,2,2]} barSize={19}/></BarChart></ResponsiveContainer></div><div className="chart-foot"><span><i className="legend purple-dot"/> km / litre</span><button>View report <ArrowUpRight size={14}/></button></div></Card>
-      <Card className="costs"><div className="card-heading"><div><p>MONTHLY SPEND</p><h2>Operational cost</h2></div><button className="icon-button"><MoreHorizontal size={18}/></button></div><div className="donut-wrap"><ResponsiveContainer width={132} height={132}><PieChart><Pie data={costs} dataKey="value" innerRadius={42} outerRadius={58} strokeWidth={5} stroke="transparent">{costs.map(x=><Cell key={x.name} fill={x.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><b>₹8.4L</b><span>this month</span></div></div><div className="cost-legend">{costs.map(x=><span key={x.name}><i style={{background:x.color}}/>{x.name}<b>{x.value}%</b></span>)}</div></Card>
+  const [theme, setTheme] = useState("light");
+  const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [page, setPage] = useState("Dashboard");
+  const [tripModal, setTripModal] = useState(false);
+  
+  // Dashboard states
+  const [stats, setStats] = useState({
+    vehicles: { total: 0, available: 0, onTrip: 0, inShop: 0 },
+    drivers: { total: 0, available: 0 },
+    trips: { total: 0, active: 0, completed: 0, cancelled: 0 }
+  });
+  const [recentTrips, setRecentTrips] = useState([]);
+  const [costAnalysis, setCostAnalysis] = useState({ totalFuel: 0, totalMaintenance: 0 });
+
+  const showToast = (message, color = "green") => {
+    setToast({ message, color });
+  };
+
+  const logout = () => {
+    localStorage.removeItem('transitops_token');
+    localStorage.removeItem('transitops_user');
+    setAuthenticated(false);
+    setUser(null);
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      const [vehiclesRes, driversRes, tripsRes, maintenanceRes, expensesRes] = await Promise.all([
+        client.get('/api/vehicles'),
+        client.get('/api/drivers'),
+        client.get('/api/trips'),
+        client.get('/api/maintenance'),
+        client.get('/api/expenses')
+      ]);
+
+      const onTripVehicles = vehiclesRes.filter(v => v.status === "On Trip").length;
+      const inShopVehicles = vehiclesRes.filter(v => v.status === "In Shop").length;
+      const availableVehicles = vehiclesRes.filter(v => v.status === "Available").length;
+
+      setStats({
+        vehicles: { total: vehiclesRes.length, available: availableVehicles, onTrip: onTripVehicles, inShop: inShopVehicles },
+        drivers: { total: driversRes.length, available: driversRes.filter(d => d.status === "Available").length },
+        trips: {
+          total: tripsRes.length,
+          active: tripsRes.filter(t => t.status === "Dispatched").length,
+          completed: tripsRes.filter(t => t.status === "Completed").length,
+          cancelled: tripsRes.filter(t => t.status === "Cancelled").length
+        }
+      });
+
+      setRecentTrips(tripsRes.slice(0, 5));
+
+      const fuelSum = expensesRes.filter(e => e.type === "Fuel").reduce((sum, e) => sum + e.cost, 0);
+      const maintSum = maintenanceRes.reduce((sum, l) => sum + l.cost, 0);
+      setCostAnalysis({ totalFuel: fuelSum, totalMaintenance: maintSum });
+
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('transitops_token');
+    const storedUser = localStorage.getItem('transitops_user');
+    if (token && storedUser) {
+      setUser(JSON.parse(storedUser));
+      setAuthenticated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authenticated) {
+      fetchDashboardData();
+    }
+  }, [authenticated, page]);
+
+  const handleCreateTrip = async (formPayload) => {
+    try {
+      // 1. Create trip record as Draft
+      const res = await client.post('/api/trips', formPayload);
+      
+      // 2. Automatically dispatch it as requested by Member 3 dispatch flow
+      await client.put(`/api/trips/${res.id}/dispatch`);
+
+      showToast("Trip created and dispatched successfully!", "green");
+      setTripModal(false);
+      fetchDashboardData();
+    } catch (err) {
+      showToast(err.message, "red");
+    }
+  };
+
+  const today = useMemo(() => new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    month: "long",
+    day: "numeric"
+  }).format(new Date()), []);
+
+  if (!authenticated) {
+    return <Login onLoginSuccess={(u) => { setUser(u); setAuthenticated(true); }} />;
+  }
+
+  return (
+    <div className={`app ${theme}`}>
+      <Sidebar
+        open={open}
+        setOpen={setOpen}
+        theme={theme}
+        setTheme={setTheme}
+        user={user}
+        onLogout={logout}
+        page={page}
+        setPage={setPage}
+      />
+      <main>
+        <Header setOpen={setOpen} user={user} />
+        <div className="content">
+          {page === "Vehicles" && <VehiclePage showToast={showToast} />}
+          {page === "Drivers" && <DriversPage showToast={showToast} />}
+          {page === "Trips" && <TripsPage showToast={showToast} />}
+          {page === "Maintenance" && <MaintenancePage showToast={showToast} />}
+          {page === "Expenses" && <ExpensesPage showToast={showToast} />}
+
+          {page === "Dashboard" && (
+            <>
+              <div className="title-row">
+                <div>
+                  <p className="eyebrow">{today}</p>
+                  <h1>Good morning, Dispatcher <span>👋</span></h1>
+                  <p className="subtitle">Real-time status overview of the TransitOps fleet.</p>
+                </div>
+                <div className="title-actions">
+                  <button className="primary" onClick={() => setTripModal(true)}><Zap size={17} /> Create trip</button>
+                </div>
+              </div>
+
+              <div className="kpi-grid">
+                <Kpi icon={Truck} color="blue" value={stats.vehicles.total} label="Active fleet size" change="4.1%" />
+                <Kpi icon={ShieldCheck} color="green" value={stats.vehicles.available} label="Available vehicles" change="5.4%" />
+                <Kpi icon={ToolCase} color="amber" value={stats.vehicles.inShop} label="Assets in maintenance" change="2.1%" down />
+                <Kpi icon={Activity} color="purple" value={stats.trips.active} label="Active transit runs" change="12.6%" />
+              </div>
+
+              <div className="metrics-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <Card className="util" style={{ flex: 1 }}>
+                  <div className="card-heading">
+                    <div>
+                      <p>FLEET PERFORMANCE</p>
+                      <h2>Fleet run counts</h2>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Active Runs</span><b>{stats.trips.active}</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Completed Deliveries</span><b>{stats.trips.completed}</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Cancelled Runs</span><b>{stats.trips.cancelled}</b>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="costs" style={{ flex: 1 }}>
+                  <div className="card-heading">
+                    <div>
+                      <p>FINANCIAL METRICS</p>
+                      <h2>Total Maintenance & Fuel Cost</h2>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Fuel Expense</span><b>₹{costAnalysis.totalFuel}</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Maintenance Care Expense</span><b>₹{costAnalysis.totalMaintenance}</b>
+                    </div>
+                    <hr style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                      <span>Total Operations Cost</span><b>₹{costAnalysis.totalFuel + costAnalysis.totalMaintenance}</b>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="bottom-row">
+                <Card className="board" style={{ width: '100%' }}>
+                  <div className="card-heading">
+                    <div>
+                      <p>LIVE MONITORING</p>
+                      <h2>Recent trips run board</h2>
+                    </div>
+                  </div>
+                  <div className="vehicle-table-wrap" style={{ marginTop: '16px' }}>
+                    <table className="vehicle-table">
+                      <thead>
+                        <tr>
+                          <th>Trip ID</th>
+                          <th>Route</th>
+                          <th>Status</th>
+                          <th>Cargo Load</th>
+                          <th>Odometer run</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentTrips.map(rt => (
+                          <tr key={rt.id}>
+                            <td><code>{rt.id.slice(0, 8)}</code></td>
+                            <td>{rt.source} → {rt.destination}</td>
+                            <td>
+                              <span className={`vehicle-status ${rt.status.toLowerCase().replaceAll(" ", "-")}`}>
+                                <i />{rt.status}
+                              </span>
+                            </td>
+                            <td>{rt.cargoWeight} kg</td>
+                            <td>{rt.plannedDistance} km</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            </>
+          )}
+
+          {toast && (
+            <div className={`toast ${toast.color === 'red' ? 'negative' : ''}`} style={{ borderLeft: `4px solid ${toast.color === 'red' ? '#ef4444' : '#22c55e'}` }}>
+              {toast.color === 'red' ? <X size={20} style={{ color: '#ef4444' }} /> : <ShieldCheck size={20} style={{ color: '#22c55e' }} />}
+              <div>
+                <b>{toast.color === 'red' ? 'Operation Error' : 'Success notification'}</b>
+                <span>{toast.message}</span>
+              </div>
+              <button onClick={() => setToast(null)}><X size={16} /></button>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {tripModal && <TripModal onClose={() => setTripModal(false)} onCreate={handleCreateTrip} showToast={showToast} />}
     </div>
-    <div className="bottom-row"><Card className="board"><div className="card-heading"><div><p>LIVE OPERATIONS</p><h2>Trip board</h2></div><button className="text-button">View all trips <ArrowUpRight size={15}/></button></div><div className="kanban">{Object.entries(trips).map(([name,items])=><div className="kanban-col" key={name}><div className="kanban-title"><span className={`stage-dot ${name.toLowerCase()}`}/><b>{name}</b><small>{items.length}</small></div>{items.map(item=><TripCard key={item.id} trip={item}/>)}{name === "Draft" && <button className="add-trip">+ Add trip</button>}</div>)}</div></Card>
-      <Card className="activity"><div className="card-heading"><div><p>NEEDS ATTENTION</p><h2>Alerts & activity</h2></div><button className="icon-button"><MoreHorizontal size={18}/></button></div><div className="alert-list"><div className="alert red"><div className="alert-icon"><CalendarDays size={17}/></div><div><b>License expires in 4 days</b><p>Rahul Patil · DL-1421</p></div><ChevronDown size={16}/></div><div className="alert amber"><div className="alert-icon"><ToolCase size={17}/></div><div><b>Maintenance due</b><p>TR-088 · 1,200 km overdue</p></div><ChevronDown size={16}/></div><div className="alert blue"><div className="alert-icon"><Fuel size={17}/></div><div><b>Fuel cost increased</b><p>12.4% above weekly average</p></div><ChevronDown size={16}/></div></div><button className="activity-link">See all notifications <ArrowUpRight size={15}/></button></Card></div>
-  </>}</div></main>{open && <div className="scrim" onClick={()=>setOpen(false)}/>} {profileOpen && <><div className="profile-scrim" onClick={()=>setProfileOpen(false)}/><aside className="profile-panel"><button className="panel-close" onClick={()=>setProfileOpen(false)}><X size={18}/></button><div className="profile-panel-head"><div className="profile-avatar-large">AK</div><div><p>FLEET MANAGER</p><h2>Arjun Khanna</h2><span>arjun@northstarfleet.com</span></div></div><div className="profile-stats"><div><b>128</b><span>Vehicles</span></div><div><b>47</b><span>Live trips</span></div><div><b>98%</b><span>Safety score</span></div></div><div className="profile-actions"><button onClick={()=>{setProfileOpen(false);setNotice(true)}}><UserRound size={18}/><span><b>My profile</b><small>Manage your account</small></span><ArrowRight size={16}/></button><button onClick={()=>{setProfileOpen(false);setNotice(true)}}><SlidersHorizontal size={18}/><span><b>Preferences</b><small>Notifications and display</small></span><ArrowRight size={16}/></button></div><button className="panel-logout" onClick={logout}><LogOut size={18}/> Log out</button></aside></>} {tripModal && <TripModal onClose={()=>setTripModal(false)} onCreate={()=>{setTripCount(tripCount+1);setTripModal(false);setNotice(true)}}/>} {notice && <div className="toast"><ShieldCheck size={20}/><div><b>Trip draft created</b><span>Continue setting the route and assignment.</span></div><button onClick={()=>setNotice(false)}><X size={16}/></button></div>}</div>
+  );
 }
-createRoot(document.getElementById("root")).render(<App/>);
+
+const container = document.getElementById("root");
+if (container) {
+  const root = createRoot(container);
+  root.render(<App />);
+}
