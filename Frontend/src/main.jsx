@@ -176,7 +176,7 @@ function Login({ onLoginSuccess }) {
           <h1>TransitOps<br /><em>operations hub.</em></h1>
           <span>One secure login for your fleet, drivers, trips, maintenance, and financial operations.</span>
         </div>
-        <div className="route-card role-list"><b>One login, four roles:</b><span><i /> Fleet Manager</span><span><i /> Dispatcher</span><span><i /> Safety Officer</span><span><i /> Financial Analyst</span></div>
+
         <div className="visual-footer">
           <span>© 2026 TransitOps</span>
           <span>Secure fleet intelligence</span>
