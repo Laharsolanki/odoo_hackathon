@@ -24,7 +24,11 @@ import {
 const router = Router();
 
 router.use(authenticateJWT);
-router.use(requireRole(['Fleet Manager']));
+router.use((req, res, next) => {
+  const role = (req as AuthRequest).user?.role;
+  if (req.method === 'GET' && ['Dispatcher', 'Safety Officer'].includes(role || '')) return next();
+  return requireRole(['Dispatcher'])(req as AuthRequest, res, next);
+});
 
 // Get all trips with optional filtering
 router.get('/', asyncHandler(async (req: Request, res: Response) => {

@@ -2,9 +2,19 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma';
+import { authenticateJWT, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'transitops-super-secret-key-2026';
+
+router.get('/me', authenticateJWT, async (req: AuthRequest, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, email: true, role: true }
+  });
+  if (!user) return res.status(401).json({ error: 'User no longer exists' });
+  res.json({ user });
+});
 
 router.post('/signup', async (req, res) => {
   try {

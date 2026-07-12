@@ -15,7 +15,11 @@ import { VEHICLE_STATUSES } from '../stateMachines/vehicleStateMachine';
 const router = Router();
 
 router.use(authenticateJWT);
-router.use(requireRole(['Fleet Manager']));
+router.use((req, res, next) => {
+  const viewers = ['Fleet Manager', 'Dispatcher', 'Financial Analyst'];
+  if (req.method === 'GET' && viewers.includes((req as any).user?.role)) return next();
+  return requireRole(['Fleet Manager'])(req as any, res, next);
+});
 
 // Get all vehicles with optional filtering
 router.get('/', asyncHandler(async (req: Request, res: Response) => {

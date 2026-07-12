@@ -15,6 +15,7 @@ const maintenance_1 = __importDefault(require("./routes/maintenance"));
 const expenses_1 = __importDefault(require("./routes/expenses"));
 const analytics_1 = __importDefault(require("./routes/analytics"));
 const reports_1 = __importDefault(require("./routes/reports"));
+const errorHandler_1 = require("./middleware/errorHandler");
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
 app.use((0, cors_1.default)());
@@ -32,6 +33,8 @@ app.use('/api/maintenance', maintenance_1.default);
 app.use('/api/expenses', expenses_1.default);
 app.use('/api/analytics', analytics_1.default);
 app.use('/api/reports', reports_1.default);
+// Global Error Handler
+app.use(errorHandler_1.errorHandler);
 app.listen(port, () => {
     console.log(`TransitOps API is running on port ${port}`);
 });

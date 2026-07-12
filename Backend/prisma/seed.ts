@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import 'dotenv/config';
 
 const prisma = new PrismaClient({
   log: ['info', 'warn', 'error'],
@@ -28,6 +29,16 @@ async function main() {
       email: 'safety@transitops.com',
       passwordHash,
       role: 'Safety Officer',
+    },
+  });
+
+  const dispatcher = await prisma.user.upsert({
+    where: { email: 'dispatcher@transitops.com' },
+    update: {},
+    create: {
+      email: 'dispatcher@transitops.com',
+      passwordHash,
+      role: 'Dispatcher',
     },
   });
 
@@ -111,6 +122,7 @@ async function main() {
   console.log('Seeding complete!');
   console.log('Test Users (password: password123):');
   console.log('manager@transitops.com');
+  console.log('dispatcher@transitops.com');
   console.log('safety@transitops.com');
   console.log('finance@transitops.com');
 }

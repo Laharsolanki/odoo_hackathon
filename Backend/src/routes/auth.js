@@ -7,8 +7,18 @@ const express_1 = require("express");
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = __importDefault(require("../prisma"));
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
-const JWT_SECRET = (process.env.JWT_SECRET || 'transitops-super-secret-key-2026');
+const JWT_SECRET = process.env.JWT_SECRET || 'transitops-super-secret-key-2026';
+router.get('/me', auth_1.authenticateJWT, async (req, res) => {
+    const user = await prisma_1.default.user.findUnique({
+        where: { id: req.user.id },
+        select: { id: true, email: true, role: true }
+    });
+    if (!user)
+        return res.status(401).json({ error: 'User no longer exists' });
+    res.json({ user });
+});
 router.post('/signup', async (req, res) => {
     try {
         const { email, password, role } = req.body;

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// Default to the same machine serving the UI. This works for localhost and
+// when the Vite app is opened through a LAN address during a demo.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -36,9 +38,9 @@ client.interceptors.response.use(
     if (error.response) {
       const data = error.response.data;
       if (data && data.error) {
-        code = data.error.code || 'UNKNOWN_ERROR';
-        message = data.error.message || message;
-        details = data.error.details || {};
+        code = typeof data.error === 'object' ? (data.error.code || 'UNKNOWN_ERROR') : 'REQUEST_ERROR';
+        message = typeof data.error === 'string' ? data.error : (data.error.message || message);
+        details = typeof data.error === 'object' ? (data.error.details || {}) : {};
       } else if (data && data.message) {
         message = data.message;
       }

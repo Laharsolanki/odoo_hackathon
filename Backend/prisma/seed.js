@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
 const bcrypt_1 = __importDefault(require("bcrypt"));
+require("dotenv/config");
 const prisma = new client_1.PrismaClient({
     log: ['info', 'warn', 'error'],
 });
