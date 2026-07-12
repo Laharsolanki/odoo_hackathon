@@ -62,6 +62,3 @@ Our database is pre-seeded with test users representing the core organizational 
 
 ---
 
-## 📚 API Documentation
-You can find the complete OpenAPI/Swagger specifications in `Backend/swagger.yaml`. 
-To test the API manually, you can also import our provided Postman collection!
